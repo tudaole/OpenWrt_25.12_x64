@@ -3,16 +3,18 @@ set -e
 
 echo "===== DIY2: OpenWrt 25.12 native configuration ====="
 
-# OpenWrt 25.12 uses apk; remove obsolete opkg selections inherited from
-# older configurations.
+# OpenWrt 25.12 uses apk; remove obsolete opkg selections inherited
+# from older configurations.
 sed -i \
   -e '/^CONFIG_PACKAGE_opkg=y$/d' \
   -e '/^CONFIG_PACKAGE_luci-app-opkg=y$/d' \
   -e '/^CONFIG_PACKAGE_luci-lib-ipkg=y$/d' \
   .config
 
-# Do not force-remove third-party packages here. Their missing dependency
-# warnings are reported by OpenWrt and can be addressed individually later.
+# Fix the confirmed OpenWrt 25.12 + Netdata package-install conflict.
+# netdata owns /etc/netdata/netdata.conf, so do not let another package
+# (notably base-files in the current build) provide the same file.
+find package -path '*/files/etc/netdata/netdata.conf' -delete
 
 make defconfig
 
