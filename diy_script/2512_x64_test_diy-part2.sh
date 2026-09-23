@@ -19,11 +19,8 @@ sed -i 's/192.168.1.1/192.168.1.11/g' package/base-files/files/bin/config_genera
 SYSCTL_FILE="package/base-files/files/etc/sysctl.conf"
 grep -q '^net.netfilter.nf_conntrack_max=' "$SYSCTL_FILE" 2>/dev/null ||     echo 'net.netfilter.nf_conntrack_max=65535' >> "$SYSCTL_FILE"
 
-# 官方 OpenWrt 没有 LEDE 的 package/lean/default-settings。
 # 使用 uci-defaults 在首次启动时完成默认设置。
-
 mkdir -p package/base-files/files/etc/uci-defaults
-
 cat > package/base-files/files/etc/uci-defaults/99-gxnas-system <<'EOF'
 #!/bin/sh
 
@@ -129,12 +126,8 @@ exit 0
 EOF
 chmod +x package/base-files/files/etc/uci-defaults/99-netdata
 
-# 官方仓库已经使用 GitHub/openwrt-25.12 feed。
-# 这里只处理仍写死 git.openwrt.org 的第三方 Makefile。
+# 处理git.openwrt.org 的第三方 Makefile。
 find package -type f \( -name "Makefile" -o -name "*.mk" \)     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
-
-# 移除旧 LEDE 默认设置/UPnP 删除逻辑：官方 OpenWrt 不存在这些文件，
-# 不要用 find/xargs 去修改整个 package tree，以免误删新版依赖。
 
 echo "========================="
 echo " DIY2 配置完成……"
