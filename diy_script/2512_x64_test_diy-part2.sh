@@ -11,9 +11,9 @@ sed -i \
   -e '/^CONFIG_PACKAGE_luci-lib-ipkg=y$/d' \
   .config
 
-# Fix the confirmed OpenWrt 25.12 + Netdata package-install conflict.
-# netdata owns /etc/netdata/netdata.conf, so do not let another package
-# (notably base-files in the current build) provide the same file.
+# Confirmed fix for the package/install failure:
+# netdata and base-files were both trying to install
+# /etc/netdata/netdata.conf.
 find package -path '*/files/etc/netdata/netdata.conf' -delete
 
 make defconfig
