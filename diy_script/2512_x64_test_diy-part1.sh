@@ -8,8 +8,7 @@ set -e
 
 echo ">>> DIY1: 准备 OpenWrt 25.12 软件源和第三方插件"
 
-# 官方 OpenWrt 25.12 已经自带 packages/luci/routing/telephony/video 的分支源。
-# 这里只追加第三方软件源，避免覆盖官方 feeds.conf.default。
+# 第三方软件源
 sed -i '/^src-git \(small\|helloworld\|passwall_packages\|passwall_luci\|openclaw\|istore\) /d' feeds.conf.default
 
 cat >> feeds.conf.default <<'EOF'
@@ -54,8 +53,7 @@ git clone --depth=1 https://github.com/EasyTier/luci-app-easytier.git package/lu
 sed -i '/^src-git istore /d' feeds.conf.default
 echo 'src-git istore https://github.com/gxnas/istore;main' >> feeds.conf.default
 
-# MosDNS v5：官方 25.12 需要较新的 Go，使用 sbwml 提供的 Go 26.x。
-# MosDNS 官方 README 也要求 OpenWrt official snapshot 使用该 Go 源。
+# MosDNS v5
 rm -rf feeds/packages/lang/golang
 git clone --depth=1 https://github.com/sbwml/packages_lang_golang -b 26.x feeds/packages/lang/golang
 
