@@ -96,25 +96,8 @@ jobs:
       # working-directory: $GITHUB_WORKSPACE
       run: |
         df -hT $PWD
-        git clone --single-branch --depth=1 --filter=blob:none --branch $REPO_BRANCH $REPO_URL $GITHUB_WORKSPACE/openwrt
-        cd $GITHUB_WORKSPACE/openwrt
-        git fetch --depth=1 origin bb9df8541c765c4a0b6e8a3ceb9a489987d5558e
-        git checkout --detach bb9df8541c765c4a0b6e8a3ceb9a489987d5558e
-        echo "OPENWRT_COMMIT=bb9df8541c765c4a0b6e8a3ceb9a489987d5558e" >> $GITHUB_ENV
+        git clone --single-branch --depth=1 --filter=blob:none $REPO_URL -b $REPO_BRANCH $GITHUB_WORKSPACE/openwrt
         echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> $GITHUB_ENV
-        cd $GITHUB_WORKSPACE/openwrt
-        echo ">>> 固定源码提交：bb9df8541c765c4a0b6e8a3ceb9a489987d5558e"
-        git checkout --detach bb9df8541c765c4a0b6e8a3ceb9a489987d5558e
-        echo ">>> 获取官方 intel-microcode 修复提交"
-        git fetch --no-tags origin openwrt-25.12 --depth=100
-        PATCH_COMMIT=$(git log origin/openwrt-25.12 --format='%H' --grep='intel-microcode: fix build error on rebuild' -n 1)
-        if [ -z "$PATCH_COMMIT" ]; then
-          echo "错误：未找到 intel-microcode 修复提交"
-          exit 1
-        fi
-        echo "应用修复提交：$PATCH_COMMIT"
-        git cherry-pick --no-edit "$PATCH_COMMIT"
-        echo "OPENWRT_COMMIT=$PATCH_COMMIT" >> $GITHUB_ENV
 
     - name: 生成变量
       run: |
