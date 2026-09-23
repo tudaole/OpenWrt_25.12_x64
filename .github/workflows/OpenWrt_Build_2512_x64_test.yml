@@ -102,6 +102,19 @@ jobs:
         git checkout --detach bb9df8541c765c4a0b6e8a3ceb9a489987d5558e
         echo "OPENWRT_COMMIT=bb9df8541c765c4a0b6e8a3ceb9a489987d5558e" >> $GITHUB_ENV
         echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> $GITHUB_ENV
+        cd $GITHUB_WORKSPACE/openwrt
+        echo ">>> 固定源码提交：bb9df8541c765c4a0b6e8a3ceb9a489987d5558e"
+        git checkout --detach bb9df8541c765c4a0b6e8a3ceb9a489987d5558e
+        echo ">>> 获取官方 intel-microcode 修复提交"
+        git fetch --no-tags origin openwrt-25.12 --depth=100
+        PATCH_COMMIT=$(git log origin/openwrt-25.12 --format='%H' --grep='intel-microcode: fix build error on rebuild' -n 1)
+        if [ -z "$PATCH_COMMIT" ]; then
+          echo "错误：未找到 intel-microcode 修复提交"
+          exit 1
+        fi
+        echo "应用修复提交：$PATCH_COMMIT"
+        git cherry-pick --no-edit "$PATCH_COMMIT"
+        echo "OPENWRT_COMMIT=$PATCH_COMMIT" >> $GITHUB_ENV
 
     - name: 生成变量
       run: |
@@ -144,7 +157,7 @@ jobs:
       uses: HiGarfield/cachewrtbuild@main
       with:
         ccache: true
-        mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+        mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-bb9df854-intel-microcode-fix
         prefix: ${{ env.OPENWRT_PATH }}
 
     - name: 下载软件包
@@ -237,6 +250,7 @@ jobs:
         echo "🧱 固件源码: ${{ env.REPO_URL }} " >> release.txt
         echo "📌 源码提交: ${{ env.OPENWRT_COMMIT }} " >> release.txt
         echo "💝 源码分支: ${{ env.REPO_BRANCH }} " >> release.txt
+        echo "🩹 修复补丁: intel-microcode: fix build error on rebuild " >> release.txt
         echo "🚀 内核版本: ${{ env.KERNEL }} " >> release.txt
         echo "🌐 默认地址：192.168.1.11 " >> release.txt
         echo "🧑‍💼 默认账号：root " >> release.txt
