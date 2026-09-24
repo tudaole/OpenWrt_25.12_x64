@@ -29,10 +29,6 @@ git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git packa
 rm -rf package/lucky
 git clone --depth=1 https://github.com/gdy666/luci-app-lucky.git package/lucky
 
-# Netdata
-rm -rf package/luci-app-netdata
-git clone --depth=1 https://github.com/sirpdboy/luci-app-netdata package/luci-app-netdata
-
 # OpenAppFilter
 rm -rf package/OpenAppFilter
 git clone --depth=1 https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
