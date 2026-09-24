@@ -22,7 +22,6 @@ grep -q '^net.netfilter.nf_conntrack_max=' "$SYSCTL_FILE" 2>/dev/null ||     ech
 # 使用 uci-defaults 在首次启动时完成默认设置。
 mkdir -p package/base-files/files/etc/uci-defaults
 cat > package/base-files/files/etc/uci-defaults/99-gxnas-system <<'EOF'
-#!/bin/sh
 
 # 主机名、时区、NTP
 uci set system.@system[0].hostname='OpenWrt-GXNAS'
@@ -69,14 +68,11 @@ for f in     package/autocore/files/x86/autocore     feeds/packages/utils/autoco
         break
     fi
 done
-
 if [ -n "$AUTOCORE_FILE" ]; then
     sed -i 's/${g}.*/${a}${b}${c}${d}${e}${f}${hydrid}/g' "$AUTOCORE_FILE" || true
 fi
 
-# Argon：取消 Bootstrap 的默认主题设置。
-# 不再修改 package/lean 或 feeds/luci/collections 中的 LEDE 路径，
-# 直接通过 99-gxnas-system 设置 mediaurlbase。
+# 取消 Bootstrap 的默认主题设置。
 find feeds/luci/themes -type f -path '*/uci-defaults/*' -exec     sed -i '/set luci.main.mediaurlbase=\/luci-static\/bootstrap/d' {} + 2>/dev/null || true
 
 # 自定义 Argon 背景/页脚（文件存在时才覆盖）
@@ -106,16 +102,6 @@ if [ -f package/luci-app-netdata/root/etc/init.d/netdata ]; then
     mkdir -p package/base-files/files/etc/rc.d
     ln -sf ../init.d/netdata package/base-files/files/etc/rc.d/S99netdata
 fi
-
-mkdir -p package/base-files/files/etc/netdata
-cat > package/base-files/files/etc/netdata/netdata.conf <<'EOF'
-[global]
-    run as user = root
-    memory mode = ram
-[cloud]
-    enabled = no
-EOF
-
 cat > package/base-files/files/etc/uci-defaults/99-netdata <<'EOF'
 #!/bin/sh
 if [ -x /etc/init.d/netdata ]; then
@@ -126,7 +112,7 @@ exit 0
 EOF
 chmod +x package/base-files/files/etc/uci-defaults/99-netdata
 
-# 处理git.openwrt.org 的第三方 Makefile。
+# 处理 openwrt.org 的第三方 Makefile。
 find package -type f \( -name "Makefile" -o -name "*.mk" \)     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
 
 echo "========================="
