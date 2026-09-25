@@ -103,13 +103,27 @@ jobs:
         echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
         echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> $GITHUB_ENV
 
-    - name: 应用官方 intel-microcode 重建修复
+    - name: 修复 intel-microcode 构建报错
       run: |
         cd openwrt
-        git fetch --no-tags origin openwrt-25.12
-        FIX_COMMIT=$(git log origin/openwrt-25.12 --format='%H' --grep='intel-microcode: fix build error on rebuild' -1)
-        if [ -n "$FIX_COMMIT" ]; then
-          git cherry-pick "$FIX_COMMIT" || true
+        # 官方 Makefile 在目录/缓存恢复后 iucode_tool 会因已存在固件文件而失败
+        # 错误: iucode_tool: xx-xx-xx: cannot write to, or create file: File exists
+        # 修复: 写入前先 rm -rf，再用 mkdir -p
+        MF=package/firmware/intel-microcode/Makefile
+        if [ -f "$MF" ]; then
+          awk '
+            /mkdir.*intel-ucode-ipkg/ && !done {
+              print "\trm -rf $(PKG_BUILD_DIR)/intel-ucode-ipkg"
+              print "\tmkdir -p $(PKG_BUILD_DIR)/intel-ucode-ipkg"
+              done=1
+              next
+            }
+            { print }
+          ' "$MF" > "$MF.tmp" && mv "$MF.tmp" "$MF"
+          echo "===== 修复后的 Build/Compile ====="
+          sed -n '/define Build\/Compile/,/^endef/p' "$MF"
+        else
+          echo "未找到 intel-microcode Makefile，跳过修复"
         fi
 
     - name: 生成变量
@@ -169,6 +183,8 @@ jobs:
       id: compile
       run: |
         cd openwrt
+        # 清理可能因缓存/上次失败残留的 intel-microcode 构建目录，避免 iucode_tool File exists
+        rm -rf build_dir/target-*/intel-microcode-*
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
