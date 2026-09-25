@@ -158,6 +158,45 @@ jobs:
         $GITHUB_WORKSPACE/$DIY_P2_SH
         make defconfig
 
+    - name: 修复第三方插件 apk 非法版本号
+      run: |
+        cd openwrt
+        # OpenWrt 25.12 使用 apk，PKG_VERSION 不能含非法字符（如 1.8-20221120）
+        # 常见问题包: luci-app-adguardhome 等 DIY 克隆的旧插件
+        fix_pkg_version() {
+          local mf="$1"
+          [ -f "$mf" ] || return 0
+          # 把 PKG_VERSION 中类似 1.8-20221120 改成 1.8.20221120（点号合法）
+          if grep -qE '^PKG_VERSION:=.*-[0-9]{8}' "$mf"; then
+            echo "修复版本: $mf"
+            sed -i -E 's/^(PKG_VERSION:=.*)(-)([0-9]{8})/\1.\3/' "$mf"
+            grep '^PKG_VERSION' "$mf" || true
+          fi
+          # 去掉 PKG_VERSION 里的 -beta / -rbeta 等后缀（apk 不接受）
+          if grep -qE '^PKG_VERSION:=.*-(beta|rbeta|alpha|rc[0-9]*)' "$mf"; then
+            echo "清理 beta 后缀: $mf"
+            sed -i -E 's/^(PKG_VERSION:=.*)-(beta|rbeta|alpha|rc[0-9]*)/\1/' "$mf"
+            grep '^PKG_VERSION' "$mf" || true
+          fi
+        }
+        # 扫描 package/ 下所有 Makefile（DIY 克隆的插件）
+        find package -name Makefile 2>/dev/null | while read -r mf; do
+          fix_pkg_version "$mf"
+        done
+        # 特别处理 luci-app-adguardhome（已知问题）
+        if [ -f package/luci-app-adguardhome/Makefile ]; then
+          echo "===== luci-app-adguardhome Makefile 版本信息 ====="
+          grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|LUCI_VERSION)' package/luci-app-adguardhome/Makefile || true
+          # 若仍是带日期横杠的版本，强制改写
+          sed -i -E 's/^(PKG_VERSION:=)([0-9]+\.[0-9]+)-([0-9]{8})/\1\2.\3/' package/luci-app-adguardhome/Makefile
+          # 有些用 LUCI_TITLE 旁的版本字符串，再兜底一次
+          if grep -q '1\.8-20221120' package/luci-app-adguardhome/Makefile 2>/dev/null; then
+            sed -i 's/1\.8-20221120/1.8.20221120/g' package/luci-app-adguardhome/Makefile
+          fi
+          echo "===== 修复后 ====="
+          grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|LUCI_VERSION)' package/luci-app-adguardhome/Makefile || true
+        fi
+
     - name: 缓存工具链
       if: env.CACHE_TOOLCHAIN == 'true'
       uses: HiGarfield/cachewrtbuild@main
