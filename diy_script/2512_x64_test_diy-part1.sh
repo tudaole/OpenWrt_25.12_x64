@@ -17,8 +17,8 @@ src-git istore https://github.com/gxnas/istore;main
 EOF
 
 # AdGuardHome
-rm -rf package/luci-app-adguardhome
-git clone --depth=1 https://github.com/kongfl888/luci-app-adguardhome package/luci-app-adguardhome
+#rm -rf package/luci-app-adguardhome
+#git clone --depth=1 https://github.com/kongfl888/luci-app-adguardhome package/luci-app-adguardhome
 
 # Argon 主题
 rm -rf package/luci-theme-argon package/luci-app-argon-config
