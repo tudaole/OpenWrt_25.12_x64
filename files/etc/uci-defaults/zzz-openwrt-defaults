@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# LuCI 默认语言
+uci -q set "luci.main.lang=zh_cn"
+uci -q commit "luci"
+
+# iStore 默认语言
+uci -q set "istore.istore.istore_vue_lang=zh-cn"
+uci -q commit "istore"
+
+exit 0
