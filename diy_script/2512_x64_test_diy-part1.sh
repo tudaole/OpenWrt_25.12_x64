@@ -12,7 +12,6 @@ src-git small https://github.com/kenzok8/small
 src-git helloworld https://github.com/fw876/helloworld
 src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main
 src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main
-src-git openclaw https://github.com/10000ge10000/luci-app-openclaw.git;main
 src-git istore https://github.com/gxnas/istore;main
 EOF
 
