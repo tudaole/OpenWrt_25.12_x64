@@ -40,28 +40,23 @@ fi
 # 设置 Argon 为默认主题
 find feeds/luci/themes -type f -path '*/uci-defaults/*' -exec     sed -i '/set luci.main.mediaurlbase=\/luci-static\/bootstrap/d' {} + 2>/dev/null || true
 
-# 自定义 Argon 背景/页脚（文件存在时才覆盖）
-if [ -f "$GITHUB_WORKSPACE/personal/bg1.jpg" ] &&    [ -d package/luci-theme-argon/htdocs/luci-static/argon/img ]; then
-    cp -f "$GITHUB_WORKSPACE/personal/bg1.jpg"         package/luci-theme-argon/htdocs/luci-static/argon/img/bg1.jpg
-fi
+# 显示增加编译时间
+#sed -i "s/DISTRIB_REVISION='R[0-9]\+\.[0-9]\+\.[0-9]\+'/DISTRIB_REVISION='@R$build_date'/g" package/lean/default-settings/files/zzz-default-settings
+#sed -i "s/LEDE/OpenWrt_2512_x64_${build_name} by GXNAS build/g" package/lean/default-settings/files/zzz-default-settings
 
-if [ -f "$GITHUB_WORKSPACE/personal/argon/footer.ut" ]; then
-    cp -f "$GITHUB_WORKSPACE/personal/argon/footer.ut"         package/luci-theme-argon/ucode/template/themes/argon/footer.ut
-fi
+# 修改Argon主题的右下角脚本版本信息和登录页版本信息
+cp -f $GITHUB_WORKSPACE/personal/argon/footer.ut package/luci-theme-argon/ucode/template/themes/argon/footer.ut
+cp -f $GITHUB_WORKSPACE/personal/argon/footer_login.ut package/luci-theme-argon/ucode/template/themes/argon/footer_login.ut
+sed -i "s/OpenWrt_2512_x64_build_name by GXNAS build @R build_date/OpenWrt_2512_x64_${build_name} by GXNAS build @R${build_date}/g" \
+package/luci-theme-argon/ucode/template/themes/argon/footer.ut \
+package/luci-theme-argon/ucode/template/themes/argon/footer_login.ut
 
-if [ -f "$GITHUB_WORKSPACE/personal/argon/footer_login.ut" ]; then
-    cp -f "$GITHUB_WORKSPACE/personal/argon/footer_login.ut"         package/luci-theme-argon/ucode/template/themes/argon/footer_login.ut
-fi
-
-# 自定义 Liquid 背景/页脚（文件存在时才覆盖）
-if [ -f "$GITHUB_WORKSPACE/personal/liquid/footer.ut" ]; then
-    cp -f "$GITHUB_WORKSPACE/personal/liquid/footer.ut"         package/luci-theme-liquid/ucode/template/themes/liquid/footer.ut
-fi
+# 修改Liquid主题的右下角脚本版本信息和登录页版本信息
+cp -f $GITHUB_WORKSPACE/personal/liquid/footer.ut package/luci-theme-liquid/ucode/template/themes/liquid/footer.ut
+sed -i "s/OpenWrt_2512_x64_build_name by GXNAS build @R build_date/OpenWrt_2512_x64_${build_name} by GXNAS build @R${build_date}/g" \
 
 # 自定义 banner
-if [ -f "$GITHUB_WORKSPACE/personal/banner" ]; then
-    cp -f "$GITHUB_WORKSPACE/personal/banner" package/base-files/files/etc/banner
-fi
+cp -f "$GITHUB_WORKSPACE/personal/banner" package/base-files/files/etc/banner
 
 # 处理 openwrt.org 的第三方 Makefile。
 find package -type f \( -name "Makefile" -o -name "*.mk" \)     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
