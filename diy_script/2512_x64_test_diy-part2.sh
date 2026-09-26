@@ -53,8 +53,10 @@ if [ -f "$GITHUB_WORKSPACE/personal/argon/footer_login.ut" ]; then
     cp -f "$GITHUB_WORKSPACE/personal/argon/footer_login.ut"         package/luci-theme-argon/ucode/template/themes/argon/footer_login.ut
 fi
 
-# 修改页脚中的旧版本名称（如果文件中存在）
-find package/luci-theme-argon -type f \( -name 'footer.ut' -o -name 'footer_login.ut' \)     -exec sed -i "s/OpenWrt_2410_x64/OpenWrt_2512_x64/g; s/OpenWrt_2512_x64_build_name/OpenWrt_2512_x64_${build_name}/g; s/build_date/${build_date}/g" {} + 2>/dev/null || true
+# 自定义 Liquid 背景/页脚（文件存在时才覆盖）
+if [ -f "$GITHUB_WORKSPACE/personal/liquid/footer.ut" ]; then
+    cp -f "$GITHUB_WORKSPACE/personal/liquid/footer.ut"         package/luci-theme-liquid/ucode/template/themes/liquid/footer.ut
+fi
 
 # 自定义 banner
 if [ -f "$GITHUB_WORKSPACE/personal/banner" ]; then
