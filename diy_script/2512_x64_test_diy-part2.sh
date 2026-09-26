@@ -54,6 +54,7 @@ package/luci-theme-argon/ucode/template/themes/argon/footer_login.ut
 # 修改Liquid主题的右下角脚本版本信息和登录页版本信息
 cp -f $GITHUB_WORKSPACE/personal/liquid/footer.ut package/luci-theme-liquid/ucode/template/themes/liquid/footer.ut
 sed -i "s/OpenWrt_2512_x64_build_name by GXNAS build @R build_date/OpenWrt_2512_x64_${build_name} by GXNAS build @R${build_date}/g" \
+package/luci-theme-liquid/ucode/template/themes/liquid/footer.ut
 
 # 自定义 banner
 cp -f "$GITHUB_WORKSPACE/personal/banner" package/base-files/files/etc/banner
