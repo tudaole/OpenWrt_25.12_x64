@@ -1,5 +1,16 @@
 #!/bin/sh
 
+# 修复 default-settings 问题
+uci set system.@system[0].hostname='OpenWrt-GXNAS'
+uci set system.@system[0].zonename='Asia/Shanghai'
+uci set system.@system[0].timezone='CST-8'
+uci -q delete system.ntp.server
+uci add_list system.ntp.server='ntp.aliyun.com'
+uci add_list system.ntp.server='time1.cloud.tencent.com'
+uci add_list system.ntp.server='time.apple.com'
+uci add_list system.ntp.server='time.windows.com'
+uci commit system
+
 # LuCI 默认语言
 uci -q set "luci.main.lang=zh_cn"
 uci -q commit "luci"
