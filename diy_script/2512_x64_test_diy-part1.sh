@@ -25,9 +25,6 @@ rm -rf package/luci-theme-argon package/luci-app-argon-config
 git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 
-# Glass 主题
-git clone https://github.com/rchen14b/luci-theme-glass.git package/luci-theme-glass
-
 # Liquid 主题
 git clone https://github.com/xylz0928/luci-theme-liquid.git package/luci-theme-liquid
 
@@ -48,31 +45,15 @@ rm -rf package/luci-app-easytier
 git clone --depth=1 https://github.com/EasyTier/luci-app-easytier.git package/luci-app-easytier
 
 # iStore：保持使用 GXNAS 的中文适配仓库
-sed -i '/^src-git istore /d' feeds.conf.default
-echo 'src-git istore https://github.com/gxnas/istore;main' >> feeds.conf.default
+#sed -i '/^src-git istore /d' feeds.conf.default
+#echo 'src-git istore https://github.com/gxnas/istore;main' >> feeds.conf.default
 
 # MosDNS v5
 rm -rf feeds/packages/lang/golang
 git clone --depth=1 https://github.com/sbwml/packages_lang_golang -b 26.x feeds/packages/lang/golang
-
 rm -rf feeds/packages/net/v2ray-geodata
 rm -rf package/mosdns package/v2ray-geodata
 git clone --depth=1 https://github.com/sbwml/luci-app-mosdns -b v5 package/mosdns
 git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
-
-cat > package/base-files/files/etc/uci-defaults/99-gxnas-defaults <<'EOF'
-#!/bin/sh
-uci set system.@system[0].hostname='OpenWrt-GXNAS'
-uci set system.@system[0].zonename='Asia/Shanghai'
-uci set system.@system[0].timezone='CST-8'
-uci commit system
-
-uci set network.lan.ipaddr='192.168.1.11'
-uci commit network
-
-exit 0
-EOF
-
-chmod +x package/base-files/files/etc/uci-defaults/99-gxnas-defaults
 
 echo "DIY1 completed."
