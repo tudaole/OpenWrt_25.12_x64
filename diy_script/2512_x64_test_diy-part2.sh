@@ -39,13 +39,6 @@ fi
 # 设置 Argon 为默认主题
 find feeds/luci/themes -type f -path '*/uci-defaults/*' -exec     sed -i '/set luci.main.mediaurlbase=\/luci-static\/bootstrap/d' {} + 2>/dev/null || true
 
-# 显示增加编译时间
-#sed -i "s/DISTRIB_REVISION='R[0-9]\+\.[0-9]\+\.[0-9]\+'/DISTRIB_REVISION='@R$build_date'/g" package/lean/default-settings/files/zzz-default-settings
-#sed -i "s/LEDE/OpenWrt_2512_x64_${build_name} by GXNAS build/g" package/lean/default-settings/files/zzz-default-settings
-echo "===========开始列出package/所有文件==========="
-ls -lR package/
-echo "===========列出package/所有文件结束==========="
-
 # 修改Argon主题的右下角脚本版本信息和登录页版本信息
 cp -f $GITHUB_WORKSPACE/personal/argon/footer.ut package/luci-theme-argon/ucode/template/themes/argon/footer.ut
 cp -f $GITHUB_WORKSPACE/personal/argon/footer_login.ut package/luci-theme-argon/ucode/template/themes/argon/footer_login.ut
