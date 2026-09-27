@@ -15,21 +15,6 @@ uci commit system
 uci -q set "luci.main.lang=zh_cn"
 uci -q commit "luci"
 
-# 修复 netdata 配置脚本缺失
-uci -q delete luci.netdata
-uci set luci.netdata="netdata"
-uci set luci.netdata.name="NetData"
-uci set luci.netdata.url="/netdata/"
-uci commit luci
-rm -f /usr/lib/lua/luci/controller/netdata.lua
-rm -f /usr/lib/lua/luci/controller/admin/netdata.lua
-cat > /usr/lib/lua/luci/controller/admin/netdata.lua << 'EOF'
-module("luci.controller.admin.netdata", package.seeall)
-function index()
-    entry({"admin", "services", "netdata"}, template("netdata"), _("NetData"), 60)
-end
-EOF
-
 # iStore 默认语言
 uci -q set "istore.istore.istore_vue_lang=zh-cn"
 uci -q commit "istore"
