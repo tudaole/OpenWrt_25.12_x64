@@ -90,9 +90,9 @@
 <p class="luci">
 	<a href="">OpenWrt_2512_x64_build_name by GXNAS build @R build_date</a>
 	<span class="luci-sep">·</span>
-	<a class="luci-link" href="https://wp.gxnas.com" target="_blank">🌐固件编译者：【GXNAS博客】</a>
-	<span class="luci-sep">·</span>
 	<span>内核版本: {{ boardinfo.kernel ?? '?' }}</span>
+	<span class="luci-sep">·</span>
+	<a class="luci-link" href="https://wp.gxnas.com" target="_blank">🌐固件编译者：【GXNAS博客】</a>
 	<span class="luci-sep">·</span>
 	<a class="luci-link" href="https://d.gxnas.com" target="_blank">👆点这里下载最新版本</a>
 </p>
@@ -101,9 +101,9 @@
 <p class="luci luci-foot">
 	<a href="">OpenWrt_2512_x64_build_name by GXNAS build @R build_date</a>
 	<span class="luci-sep">·</span>
-	<a class="luci-link" href="https://wp.gxnas.com" target="_blank">🌐固件编译者：【GXNAS博客】</a>
-	<span class="luci-sep">·</span>
 	<span>内核版本: {{ boardinfo.kernel ?? '?' }}</span>
+	<span class="luci-sep">·</span>
+	<a class="luci-link" href="https://wp.gxnas.com" target="_blank">🌐固件编译者：【GXNAS博客】</a>
 	<span class="luci-sep">·</span>
 	<a class="luci-link" href="https://d.gxnas.com" target="_blank">👆点这里下载最新版本</a>
 </p>
