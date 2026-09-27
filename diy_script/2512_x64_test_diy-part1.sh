@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# OpenWrt DIY script part 1 (After Update feeds)
+# Adapted for official openwrt/openwrt v25.12.
+#
+
 set -e
 
 echo "===== DIY1: OpenWrt 25.12 native preparation ====="
@@ -16,8 +21,8 @@ src-git istore https://github.com/gxnas/istore;main
 EOF
 
 # AdGuardHome
-#rm -rf package/luci-app-adguardhome
-#git clone --depth=1 https://github.com/kongfl888/luci-app-adguardhome package/luci-app-adguardhome
+rm -rf package/luci-app-adguardhome
+git clone --depth=1 https://github.com/kongfl888/luci-app-adguardhome package/luci-app-adguardhome
 
 # Argon 主题
 rm -rf package/luci-theme-argon package/luci-app-argon-config
@@ -43,10 +48,6 @@ git clone --depth=1 https://github.com/sirpdboy/luci-app-poweroffdevice.git pack
 rm -rf package/luci-app-easytier
 git clone --depth=1 https://github.com/EasyTier/luci-app-easytier.git package/luci-app-easytier
 
-# iStore：保持使用 GXNAS 的中文适配仓库
-#sed -i '/^src-git istore /d' feeds.conf.default
-#echo 'src-git istore https://github.com/gxnas/istore;main' >> feeds.conf.default
-
 # MosDNS v5
 rm -rf feeds/packages/lang/golang
 git clone --depth=1 https://github.com/sbwml/packages_lang_golang -b 26.x feeds/packages/lang/golang
@@ -55,4 +56,4 @@ rm -rf package/mosdns package/v2ray-geodata
 git clone --depth=1 https://github.com/sbwml/luci-app-mosdns -b v5 package/mosdns
 git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
 
-echo "DIY1 completed."
+echo "===== DIY1 completed. ====="
