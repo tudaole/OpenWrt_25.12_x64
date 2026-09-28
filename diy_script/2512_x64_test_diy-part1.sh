@@ -40,6 +40,10 @@ git clone https://github.com/xylz0928/luci-theme-liquid.git package/luci-theme-l
 rm -rf package/lucky
 git clone --depth=1 https://github.com/gdy666/luci-app-lucky.git package/lucky
 
+# Netdata 插件
+rm -rf package/luci-app-netdata
+git clone --depth=1 https://github.com/sirpdboy/luci-app-netdata package/luci-app-netdata
+
 # OpenAppFilter 插件
 rm -rf package/OpenAppFilter
 git clone --depth=1 https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
