@@ -58,6 +58,6 @@ cp -f "$GITHUB_WORKSPACE/personal/banner" package/base-files/files/etc/banner
 find package -type f \( -name "Makefile" -o -name "*.mk" \)     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
 
 # 确保自定义的 uci-defaults 脚本具有可执行权限
-chmod +x files/etc/uci-defaults/zzz-openwrt-defaults
+chmod +x  $GITHUB_WORKSPACE/files/etc/uci-defaults/zzz-openwrt-defaults
 
 echo "=============DIY2 配置完成============"
