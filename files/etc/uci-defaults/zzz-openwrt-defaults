@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# 修复 default-settings 问题
+# 修改基本设置
 uci set system.@system[0].hostname='OpenWrt-GXNAS'
 uci set system.@system[0].zonename='Asia/Shanghai'
 uci set system.@system[0].timezone='CST-8'
@@ -15,15 +15,18 @@ uci commit system
 uci -q set "luci.main.lang=zh_cn"
 uci -q commit "luci"
 
+# 修复 Netdata 启动脚本权限问题
+[ -f /etc/init.d/netdata ] && chmod +x /etc/init.d/netdata
+
 # iStore 默认语言
-uci -q set "istore.istore.istore_vue_lang=zh-cn"
+uci -q set "istore.istore.istore_vue_lang=zh_cn"
 uci -q commit "istore"
 
-# TurboACC 插件默认启用 BBR 拥塞控制（内核 6.18 自带最新 BBR）
+# TurboACC 插件默认启用 BBR 拥塞控制
 if [ -f "/etc/config/turboacc" ]; then
-	uci -q set "turboacc.config.tcpcca"="bbr"
-	uci -q commit "turboacc"
-	/etc/init.d/turboacc restart >/dev/null 2>&1
+    uci -q set "turboacc.config.tcpcca=bbr"
+    uci -q commit "turboacc"
+    /etc/init.d/turboacc restart >/dev/null 2>&1
 fi
 
 exit 0
