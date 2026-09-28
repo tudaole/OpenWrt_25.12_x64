@@ -61,7 +61,9 @@ git clone --depth=1 https://github.com/sbwml/luci-app-mosdns -b v5 package/mosdn
 git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
 
 # turboacc 插件
-rm -rf package/luci-app-turboacc
-git clone --depth=1 https://github.com/chenmozhijin/turboacc.git package/luci-app-turboacc
+rm -rf package/turboacc
+curl -fsSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turboacc.sh -o /tmp/add_turboacc.sh
+bash /tmp/add_turboacc.sh
+rm -f /tmp/add_turboacc.sh
 
 echo "===== DIY1 completed. ====="
