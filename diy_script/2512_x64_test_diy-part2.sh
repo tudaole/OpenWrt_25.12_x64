@@ -57,4 +57,18 @@ cp -f "$GITHUB_WORKSPACE/personal/banner" package/base-files/files/etc/banner
 # 处理 openwrt.org 的第三方 Makefile。
 find package -type f \( -name "Makefile" -o -name "*.mk" \)     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
 
+# ========== 强制只使用 iptables-nft，解决 25.12 apk 冲突 ==========
+echo "强制禁用 iptables-zz-legacy / ip6tables-zz-legacy"
+sed -i 's/CONFIG_PACKAGE_iptables-zz-legacy=y/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' .config
+sed -i 's/CONFIG_PACKAGE_ip6tables-zz-legacy=y/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' .config
+
+# 确保 nft 版本开启
+sed -i 's/# CONFIG_PACKAGE_iptables-nft is not set/CONFIG_PACKAGE_iptables-nft=y/' .config
+sed -i 's/# CONFIG_PACKAGE_ip6tables-nft is not set/CONFIG_PACKAGE_ip6tables-nft=y/' .config
+
+# 确保虚拟包 iptables 开启（让它指向 nft）
+sed -i 's/# CONFIG_PACKAGE_iptables is not set/CONFIG_PACKAGE_iptables=y/' .config
+sed -i 's/# CONFIG_PACKAGE_ip6tables is not set/CONFIG_PACKAGE_ip6tables=y/' .config
+
+echo "=============DIY2 配置完成============"
 echo "=============DIY2 配置完成============"
