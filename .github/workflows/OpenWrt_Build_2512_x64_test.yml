@@ -152,6 +152,24 @@ jobs:
         $GITHUB_WORKSPACE/$DIY_P2_SH
         make defconfig
 
+        # ========== 关键关键：必须在 make defconfig 之后强制执行 ==========
+        echo "强制禁用 iptables-zz-legacy / ip6tables-zz-legacy（防止 defconfig 重新打开）"
+        sed -i 's/CONFIG_PACKAGE_iptables-zz-legacy=y/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' .config
+        sed -i 's/CONFIG_PACKAGE_ip6tables-zz-legacy=y/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' .config
+
+        # 确保 nft 版本开启
+        sed -i 's/# CONFIG_PACKAGE_iptables-nft is not set/CONFIG_PACKAGE_iptables-nft=y/' .config
+        sed -i 's/# CONFIG_PACKAGE_ip6tables-nft is not set/CONFIG_PACKAGE_ip6tables-nft=y/' .config
+        sed -i 's/# CONFIG_PACKAGE_iptables is not set/CONFIG_PACKAGE_iptables=y/' .config
+        sed -i 's/# CONFIG_PACKAGE_ip6tables is not set/CONFIG_PACKAGE_ip6tables=y/' .config
+
+        # 再次执行 defconfig 让依赖正确解析（此时 legacy 已被关闭）
+        make defconfig
+
+        # 最终确认
+        echo "===== 最终 iptables 相关配置 ====="
+        grep -E 'CONFIG_PACKAGE_iptables|CONFIG_PACKAGE_ip6tables' .config || true
+
     - name: 修复第三方插件 apk 非法版本号
       run: |
         cd openwrt
