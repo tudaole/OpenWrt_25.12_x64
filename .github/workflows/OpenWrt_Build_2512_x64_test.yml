@@ -242,6 +242,11 @@ jobs:
         echo "=========================================="
         echo "$(nproc) thread compile"
         echo "=========================================="
+        echo "=========================================="
+        echo "检查代理插件是否启用"
+        echo "=========================================="
+        grep -E '^CONFIG_PACKAGE_(luci-app-ssr-plus|luci-app-passwall|luci-app-passwall2)=' .config || true
+
         make -j$(nproc) V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
