@@ -216,8 +216,33 @@ jobs:
       run: |
         cd openwrt
         rm -rf build_dir/target-*/intel-microcode-*
-        echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "=========================================="
+        echo "检查 iptables 配置"
+        echo "=========================================="
+        grep -E 'CONFIG_(DEFAULT_)?(IP6)?TABLES?' .config || true
+        echo "=========================================="
+        echo "检查 iptables-zz-legacy 配置"
+        echo "=========================================="
+        grep -n "iptables-zz-legacy" .config || true
+        echo "=========================================="
+        echo "检查现有 apk_install_list"
+        echo "=========================================="
+        if [ -f tmp/apk_install_list ]; then
+          grep -nE 'iptables|ip6tables' tmp/apk_install_list || true
+        else
+          echo "tmp/apk_install_list 尚未生成"
+        fi
+        echo "=========================================="
+        echo "搜索 iptables-zz-legacy 来源"
+        echo "=========================================="
+        grep -Rni "iptables-zz-legacy" \
+          package feeds tmp \
+          --exclude-dir=.git \
+          2>/dev/null | head -200 || true
+        echo "=========================================="
+        echo "$(nproc) thread compile"
+        echo "=========================================="
+        make -j$(nproc) V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
