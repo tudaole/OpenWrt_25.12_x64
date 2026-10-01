@@ -65,31 +65,39 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        sudo rm -rf /etc/apt/sources.list.d
-        sudo rm -rf /etc/apt/sources.list.d/*
-        sudo bash -c 'cat > /etc/apt/sources.list <<EOF
-        deb https://mirrors.aliyun.com/ubuntu/ noble main restricted universe multiverse
-        deb https://mirrors.aliyun.com/ubuntu/ noble-updates main restricted universe multiverse
-        deb https://mirrors.aliyun.com/ubuntu/ noble-backports main restricted universe multiverse
-        deb https://mirrors.aliyun.com/ubuntu/ noble-security main restricted universe multiverse
-        EOF'
-        sudo -E apt-get update -y || sudo -E apt-get update -y || sudo -E apt-get update -y
-        sudo rm -rf /etc/apt/sources.list.d* /usr/local/lib/android* /etc/docker* /etc/firefox* /etc/mysql* /etc/php* /opt/google* /usr/share/dotnet* /usr/share/google* /usr/share/moby* /usr/share/mysql* /usr/share/php*
-        sudo -E apt-get -qq update
-        sudo -E apt-get -y purge azure* docker* dotnet* firefox* ghc* google* llvm* mongodb* mysql* php* powershell* snap* gfortran* microsoft-edge-stable
-        sudo -E apt-get -qq install $(curl -fsSL raw.githubusercontent.com/Lai-xi/Actions-Lede_x86/main/run)
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
+        set -e
+        echo "=========================================="
+        echo "初始化 OpenWrt 25.12 编译环境"
+        echo "=========================================="
         sudo timedatectl set-timezone "$TZ"
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          build-essential \
+          clang \
+          flex \
+          bison \
+          g++ \
+          gawk \
+          gcc \
+          gettext \
+          git \
+          libncurses-dev \
+          libssl-dev \
+          python3 \
+          python3-setuptools \
+          rsync \
+          swig \
+          unzip \
+          wget \
+          curl \
+          xsltproc \
+          zstd \
+          file
         sudo mkdir -p /workdir
-        sudo chown $USER:$GROUPS /workdir
-
-    - name: 强制清理磁盘
-      run: |
-        sudo rm -rf /mnt/*
-        sudo rm -rf /opt/*
-        sudo rm -rf /usr/local/*
-        df -hT
+        sudo chown "$USER:$GROUPS" /workdir
+        echo "=========================================="
+        echo "初始化完成"
+        echo "=========================================="
 
     - name: 克隆源代码
       run: |
@@ -182,6 +190,14 @@ jobs:
           grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|LUCI_VERSION)' package/luci-app-adguardhome/Makefile || true
         fi
 
+    - name: 缓存 OpenWrt 下载文件
+      uses: actions/cache@v4
+      with:
+        path: openwrt/dl
+        key: openwrt-dl-${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ hashFiles('config/2512_x64_test.config', 'feeds.conf.default') }}
+        restore-keys: |
+          openwrt-dl-${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-
+
     - name: 缓存工具链
       if: env.CACHE_TOOLCHAIN == 'true'
       uses: HiGarfield/cachewrtbuild@main
@@ -200,10 +216,9 @@ jobs:
         sed -i 's/CONFIG_PACKAGE_ip6tables-zz-legacy=y/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' .config
         sed -i 's/# CONFIG_PACKAGE_iptables-nft is not set/CONFIG_PACKAGE_iptables-nft=y/' .config
         sed -i 's/# CONFIG_PACKAGE_ip6tables-nft is not set/CONFIG_PACKAGE_ip6tables-nft=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_iptables is not set/CONFIG_PACKAGE_iptables=y/' .config
         sed -i 's/# CONFIG_PACKAGE_ip6tables is not set/CONFIG_PACKAGE_ip6tables=y/' .config
         make defconfig
-        make download -j8
+        make download -j$(nproc)
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
