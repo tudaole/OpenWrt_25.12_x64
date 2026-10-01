@@ -6,7 +6,7 @@
 
 set -e
 
-echo "===== DIY1: OpenWrt 25.12 native preparation ====="
+echo "============开始 DIY1 配置============="
 
 mkdir -p package/base-files/files/etc/uci-defaults
 
@@ -39,6 +39,14 @@ git clone https://github.com/xylz0928/luci-theme-liquid.git package/luci-theme-l
 rm -rf package/lucky
 git clone --depth=1 https://github.com/gdy666/luci-app-lucky.git package/lucky
 
+# MosDNS v5 插件
+rm -rf feeds/packages/lang/golang
+git clone --depth=1 https://github.com/sbwml/packages_lang_golang -b 26.x feeds/packages/lang/golang
+rm -rf feeds/packages/net/v2ray-geodata
+rm -rf package/mosdns package/v2ray-geodata
+git clone --depth=1 https://github.com/sbwml/luci-app-mosdns -b v5 package/mosdns
+git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
+
 # Netdata 插件
 rm -rf package/luci-app-netdata
 git clone --depth=1 https://github.com/sirpdboy/luci-app-netdata package/luci-app-netdata
@@ -51,18 +59,15 @@ git clone --depth=1 https://github.com/destan19/OpenAppFilter.git package/OpenAp
 rm -rf package/luci-app-poweroffdevice
 git clone --depth=1 https://github.com/sirpdboy/luci-app-poweroffdevice.git package/luci-app-poweroffdevice
 
-# MosDNS v5 插件
-rm -rf feeds/packages/lang/golang
-git clone --depth=1 https://github.com/sbwml/packages_lang_golang -b 26.x feeds/packages/lang/golang
-rm -rf feeds/packages/net/v2ray-geodata
-rm -rf package/mosdns package/v2ray-geodata
-git clone --depth=1 https://github.com/sbwml/luci-app-mosdns -b v5 package/mosdns
-git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
-
-# turboacc 插件
+# Turboacc 插件
 rm -rf package/turboacc
 curl -fsSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turboacc.sh -o /tmp/add_turboacc.sh
 bash /tmp/add_turboacc.sh
 rm -f /tmp/add_turboacc.sh
 
-echo "===== DIY1 completed. ====="
+# Vlmcsd 插件
+rm -rf package/luci-app-vlmcsd
+git clone https://github.com/N7777777/luci-app-vlmcsd.git package/luci-app-vlmcsd
+
+
+echo "=============DIY1 配置完成============"
