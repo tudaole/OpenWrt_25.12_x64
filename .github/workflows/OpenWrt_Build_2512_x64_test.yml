@@ -337,9 +337,31 @@ jobs:
         echo "=========================================="
 
         make defconfig
-
+        
         echo "=========================================="
         echo "defconfig 后检查 iptables 配置"
+        echo "=========================================="
+        
+        grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
+        
+        echo "=========================================="
+        echo "检查 iptables-zz-legacy"
+        echo "=========================================="
+        
+        if grep -q '^CONFIG_PACKAGE_iptables-zz-legacy=y$' .config; then
+            echo "❌ ERROR: iptables-zz-legacy 被 defconfig 重新启用"
+            echo "❌ 停止编译，避免浪费大量时间"
+            exit 1
+        fi
+        
+        if grep -q '^CONFIG_PACKAGE_ip6tables-zz-legacy=y$' .config; then
+            echo "❌ ERROR: ip6tables-zz-legacy 被 defconfig 重新启用"
+            echo "❌ 停止编译，避免浪费大量时间"
+            exit 1
+        fi
+        
+        echo "✅ iptables-zz-legacy 未启用"
+        echo "✅ ip6tables-zz-legacy 未启用"
         echo "=========================================="
 
         grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
