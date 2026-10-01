@@ -337,40 +337,53 @@ jobs:
         echo "=========================================="
 
         make defconfig
-        
+
         echo "=========================================="
         echo "defconfig 后检查 iptables 配置"
         echo "=========================================="
-        
+
         grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
-        
+
         echo "=========================================="
         echo "检查 iptables-zz-legacy"
         echo "=========================================="
-        
+
         if grep -q '^CONFIG_PACKAGE_iptables-zz-legacy=y$' .config; then
-            echo "❌ ERROR: iptables-zz-legacy 被 defconfig 重新启用"
-            echo "❌ 停止编译，避免浪费大量时间"
-            exit 1
+          echo "❌ ERROR: iptables-zz-legacy 被 defconfig 重新启用"
+          echo "❌ 停止编译，避免浪费大量时间"
+          exit 1
         fi
-        
+
         if grep -q '^CONFIG_PACKAGE_ip6tables-zz-legacy=y$' .config; then
-            echo "❌ ERROR: ip6tables-zz-legacy 被 defconfig 重新启用"
-            echo "❌ 停止编译，避免浪费大量时间"
-            exit 1
+          echo "❌ ERROR: ip6tables-zz-legacy 被 defconfig 重新启用"
+          echo "❌ 停止编译，避免浪费大量时间"
+          exit 1
         fi
-        
+
+        echo "=========================================="
+        echo "检查 nft variant"
+        echo "=========================================="
+
+        if ! grep -q '^CONFIG_PACKAGE_iptables-nft=y$' .config; then
+          echo "❌ ERROR: iptables-nft 未启用"
+          exit 1
+        fi
+
+        if ! grep -q '^CONFIG_PACKAGE_ip6tables-nft=y$' .config; then
+          echo "❌ ERROR: ip6tables-nft 未启用"
+          exit 1
+        fi
+
+        echo "✅ iptables-nft 已启用"
+        echo "✅ ip6tables-nft 已启用"
         echo "✅ iptables-zz-legacy 未启用"
         echo "✅ ip6tables-zz-legacy 未启用"
+
+        echo "=========================================="
+        echo "最终 iptables 配置"
         echo "=========================================="
 
         grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
-
-        echo "=========================================="
-        echo "检查 iptables-zz-legacy 配置"
-        echo "=========================================="
-
-        grep -n "iptables-zz-legacy" .config || true
 
         echo "=========================================="
         echo "下载 OpenWrt 软件包"
