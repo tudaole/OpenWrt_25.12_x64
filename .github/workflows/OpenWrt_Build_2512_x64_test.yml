@@ -1,13 +1,13 @@
 name: OpenWrt_Build_2512_x64_test
 
-permissions:
-  contents: write
-
 on:
-  repository_dispatch:
   workflow_dispatch:
+  repository_dispatch:
   #schedule:
     #- cron: 0 17 * * *
+
+permissions:
+  contents: write
 
 env:
   REPO_URL: https://github.com/openwrt/openwrt
@@ -32,7 +32,6 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-
     - name: 检查服务器性能
       run: |
         echo "警告⚠"
@@ -553,4 +552,3 @@ jobs:
           -d "$(jq -n \
             --arg content "$CONTENT" \
             '{msgtype: "text", text: {content: $content}})"
-```
