@@ -293,19 +293,19 @@ jobs:
         echo "启用 iptables-nft / ip6tables-nft"
 
         sed -i \
-          's/CONFIG_PACKAGE_iptables-zz-legacy=y/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
+          's/^CONFIG_PACKAGE_iptables-zz-legacy=y$/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
           .config
 
         sed -i \
-          's/CONFIG_PACKAGE_ip6tables-zz-legacy=y/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
+          's/^CONFIG_PACKAGE_ip6tables-zz-legacy=y$/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
           .config
 
         sed -i \
-          's/# CONFIG_PACKAGE_iptables-nft is not set/CONFIG_PACKAGE_iptables-nft=y/' \
+          's/^# CONFIG_PACKAGE_iptables-nft is not set$/CONFIG_PACKAGE_iptables-nft=y/' \
           .config
 
         sed -i \
-          's/# CONFIG_PACKAGE_ip6tables-nft is not set/CONFIG_PACKAGE_ip6tables-nft=y/' \
+          's/^# CONFIG_PACKAGE_ip6tables-nft is not set$/CONFIG_PACKAGE_ip6tables-nft=y/' \
           .config
 
         echo "=========================================="
@@ -333,45 +333,92 @@ jobs:
           .config || true
 
         echo "=========================================="
-        echo "运行 make defconfig"
+        echo "定位 iptables-zz-legacy 的 Kconfig 来源"
         echo "=========================================="
 
-        echo "=========================================="
-        echo "defconfig 前：搜索所有 legacy 依赖来源"
-        echo "=========================================="
-        
-        echo "--- Makefile 中的 select ---"
-        
+        echo "----- Makefile 中的 iptables-zz-legacy select -----"
+
         grep -RniE \
-          'select[[:space:]]+PACKAGE_(ip6tables-)?zz-legacy' \
+          'select[[:space:]]+PACKAGE_iptables-zz-legacy' \
           package feeds \
           --include='Makefile' \
           2>/dev/null || true
-        
+
         echo "=========================================="
-        echo "所有 PACKAGE_iptables-zz-legacy 依赖"
+        echo "----- Makefile 中的 ip6tables-zz-legacy select -----"
+
+        grep -RniE \
+          'select[[:space:]]+PACKAGE_ip6tables-zz-legacy' \
+          package feeds \
+          --include='Makefile' \
+          2>/dev/null || true
+
         echo "=========================================="
-        
+        echo "----- PassWall2 Makefile 路径 -----"
+
+        find package feeds \
+          -path '*/luci-app-passwall2/Makefile' \
+          -print \
+          2>/dev/null || true
+
+        echo "=========================================="
+        echo "----- SSR Plus Makefile 路径 -----"
+
+        find package feeds \
+          -path '*/luci-app-ssr-plus/Makefile' \
+          -print \
+          2>/dev/null || true
+
+        echo "=========================================="
+        echo "----- PassWall2 中的 legacy 依赖 -----"
+
+        grep -Rni \
+          'iptables-zz-legacy' \
+          feeds/small/luci-app-passwall2 \
+          package/feeds/small/luci-app-passwall2 \
+          2>/dev/null || true
+
+        echo "=========================================="
+        echo "----- SSR Plus 中的 legacy 依赖 -----"
+
+        grep -Rni \
+          'iptables-zz-legacy' \
+          feeds/helloworld/luci-app-ssr-plus \
+          package/feeds/helloworld/luci-app-ssr-plus \
+          2>/dev/null || true
+
+        echo "=========================================="
+        echo "----- 所有 legacy 依赖来源 -----"
+
         grep -Rni \
           'PACKAGE_iptables-zz-legacy' \
           package feeds \
           --exclude-dir=.git \
           2>/dev/null | head -200 || true
-        
+
         echo "=========================================="
-        echo "所有 PACKAGE_ip6tables-zz-legacy 依赖"
-        echo "=========================================="
-        
+        echo "----- 所有 ip6tables legacy 依赖来源 -----"
+
         grep -Rni \
           'PACKAGE_ip6tables-zz-legacy' \
           package feeds \
           --exclude-dir=.git \
           2>/dev/null | head -200 || true
-        
+
         echo "=========================================="
-        echo "执行 make defconfig"
+        echo "Kconfig 来源搜索完成"
         echo "=========================================="
-        
+
+        echo "=========================================="
+        echo "defconfig 前 iptables 配置"
+        echo "=========================================="
+
+        grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
+
+        echo "=========================================="
+        echo "运行 make defconfig"
+        echo "=========================================="
+
         make defconfig
 
         echo "=========================================="
@@ -397,7 +444,7 @@ jobs:
         fi
 
         echo "=========================================="
-        echo "检查 nft variant"
+        echo "检查 iptables-nft"
         echo "=========================================="
 
         if ! grep -q '^CONFIG_PACKAGE_iptables-nft=y$' .config; then
@@ -420,6 +467,14 @@ jobs:
         echo "=========================================="
 
         grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
+
+        echo "=========================================="
+        echo "检查 iptables-zz-legacy 配置"
+        echo "=========================================="
+
+        grep -n \
+          -E 'CONFIG_PACKAGE_(ip6tables-)?zz-legacy' \
+          .config || true
 
         echo "=========================================="
         echo "下载 OpenWrt 软件包"
