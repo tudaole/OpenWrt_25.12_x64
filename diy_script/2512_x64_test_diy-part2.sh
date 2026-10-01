@@ -68,6 +68,18 @@ find feeds package -type f -name 'Makefile' 2>/dev/null | while read -r mf; do
     "$mf"
 done
 
+# .config 强制
+if [ -f ".config" ]; then
+  sed -i \
+    -e 's/^CONFIG_PACKAGE_iptables-zz-legacy=y$/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
+    -e 's/^CONFIG_PACKAGE_ip6tables-zz-legacy=y$/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
+    -e 's/^# CONFIG_PACKAGE_iptables-nft is not set$/CONFIG_PACKAGE_iptables-nft=y/' \
+    -e 's/^# CONFIG_PACKAGE_ip6tables-nft is not set$/CONFIG_PACKAGE_ip6tables-nft=y/' \
+    .config
+  grep -q '^CONFIG_PACKAGE_iptables-nft=y$' .config || echo 'CONFIG_PACKAGE_iptables-nft=y' >> .config
+  grep -q '^CONFIG_PACKAGE_ip6tables-nft=y$' .config || echo 'CONFIG_PACKAGE_ip6tables-nft=y' >> .config
+fi
+
 echo "=============iptables 依赖修正完成============"
 
 echo "=============DIY2 配置完成============"
