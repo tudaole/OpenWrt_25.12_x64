@@ -286,27 +286,79 @@ jobs:
         cd openwrt
 
         echo "=========================================="
-        echo "修复 iptables 冲突"
+        echo "彻底修复 iptables-zz-legacy（官方 OpenWrt 25.12）"
         echo "=========================================="
 
-        echo "禁用 iptables-zz-legacy / ip6tables-zz-legacy"
-        echo "启用 iptables-nft / ip6tables-nft"
+        # 1. 全局删除所有 Makefile 里的 legacy select，并改成 nft
+        find feeds package -type f -name 'Makefile' 2>/dev/null | while read -r mf; do
+          sed -i \
+            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_iptables-zz-legacy/d' \
+            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_ip6tables-zz-legacy/d' \
+            "$mf"
 
+          sed -i \
+            -e 's/select[[:space:]]\+PACKAGE_iptables$/select PACKAGE_iptables-nft/' \
+            -e 's/select[[:space:]]\+PACKAGE_ip6tables$/select PACKAGE_ip6tables-nft/' \
+            "$mf"
+
+          sed -i \
+            -e 's/\(+iptables\)\([^-a-zA-Z0-9_]\|$\)/\1-nft\2/g' \
+            -e 's/\(+ip6tables\)\([^-a-zA-Z0-9_]\|$\)/\1-nft\2/g' \
+            "$mf"
+        done
+
+        # 2. 特别再处理一次 SSR Plus / PassWall / PassWall2
+        for path in \
+          feeds/helloworld/luci-app-ssr-plus/Makefile \
+          package/feeds/helloworld/luci-app-ssr-plus/Makefile \
+          feeds/passwall_luci/luci-app-passwall/Makefile \
+          package/feeds/passwall_luci/luci-app-passwall/Makefile \
+          feeds/passwall_luci/luci-app-passwall2/Makefile \
+          package/feeds/passwall_luci/luci-app-passwall2/Makefile
+        do
+          [ -f "$path" ] || continue
+          echo "强制修补: $path"
+          sed -i \
+            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_iptables-zz-legacy/d' \
+            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_ip6tables-zz-legacy/d' \
+            -e 's/select[[:space:]]\+PACKAGE_iptables$/select PACKAGE_iptables-nft/' \
+            -e 's/select[[:space:]]\+PACKAGE_ip6tables$/select PACKAGE_ip6tables-nft/' \
+            "$path"
+          if ! grep -q 'select PACKAGE_iptables-nft' "$path"; then
+            sed -i '/select PACKAGE_ipset/a\	select PACKAGE_iptables-nft' "$path" 2>/dev/null || \
+            sed -i '/DEPENDS:=/a\	select PACKAGE_iptables-nft' "$path" 2>/dev/null || true
+          fi
+          if ! grep -q 'select PACKAGE_ip6tables-nft' "$path"; then
+            sed -i '/select PACKAGE_iptables-nft/a\	select PACKAGE_ip6tables-nft' "$path" 2>/dev/null || true
+          fi
+        done
+
+        # 3. 清理 feeds 临时索引，强制重新生成
+        rm -rf feeds/*.tmp feeds/*/tmp feeds/*/.index feeds/*/*.index 2>/dev/null || true
+        rm -rf tmp/.config* 2>/dev/null || true
+
+        # 4. 强制 .config
         sed -i \
-          's/^CONFIG_PACKAGE_iptables-zz-legacy=y$/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
+          -e 's/^CONFIG_PACKAGE_iptables-zz-legacy=y$/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
+          -e 's/^CONFIG_PACKAGE_ip6tables-zz-legacy=y$/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
+          -e 's/^# CONFIG_PACKAGE_iptables-nft is not set$/CONFIG_PACKAGE_iptables-nft=y/' \
+          -e 's/^# CONFIG_PACKAGE_ip6tables-nft is not set$/CONFIG_PACKAGE_ip6tables-nft=y/' \
           .config
 
-        sed -i \
-          's/^CONFIG_PACKAGE_ip6tables-zz-legacy=y$/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
-          .config
+        grep -q '^CONFIG_PACKAGE_iptables-nft=y$' .config || echo 'CONFIG_PACKAGE_iptables-nft=y' >> .config
+        grep -q '^CONFIG_PACKAGE_ip6tables-nft=y$' .config || echo 'CONFIG_PACKAGE_ip6tables-nft=y' >> .config
+        grep -q 'iptables-zz-legacy is not set' .config || echo '# CONFIG_PACKAGE_iptables-zz-legacy is not set' >> .config
+        grep -q 'ip6tables-zz-legacy is not set' .config || echo '# CONFIG_PACKAGE_ip6tables-zz-legacy is not set' >> .config
 
-        sed -i \
-          's/^# CONFIG_PACKAGE_iptables-nft is not set$/CONFIG_PACKAGE_iptables-nft=y/' \
-          .config
-
-        sed -i \
-          's/^# CONFIG_PACKAGE_ip6tables-nft is not set$/CONFIG_PACKAGE_ip6tables-nft=y/' \
-          .config
+        echo "=========================================="
+        echo "验证 Makefile 是否还有 legacy select"
+        echo "=========================================="
+        if grep -RniE 'select[[:space:]]+PACKAGE_iptables-zz-legacy' feeds package --include='Makefile' 2>/dev/null; then
+          echo "❌ 仍有 Makefile 残留 select PACKAGE_iptables-zz-legacy"
+          exit 1
+        else
+          echo "✅ 所有 Makefile 已清除 iptables-zz-legacy select"
+        fi
 
         echo "=========================================="
         echo "检查递归依赖插件"
@@ -333,83 +385,6 @@ jobs:
           .config || true
 
         echo "=========================================="
-        echo "定位 iptables-zz-legacy 的 Kconfig 来源"
-        echo "=========================================="
-
-        echo "----- Makefile 中的 iptables-zz-legacy select -----"
-
-        grep -RniE \
-          'select[[:space:]]+PACKAGE_iptables-zz-legacy' \
-          package feeds \
-          --include='Makefile' \
-          2>/dev/null || true
-
-        echo "=========================================="
-        echo "----- Makefile 中的 ip6tables-zz-legacy select -----"
-
-        grep -RniE \
-          'select[[:space:]]+PACKAGE_ip6tables-zz-legacy' \
-          package feeds \
-          --include='Makefile' \
-          2>/dev/null || true
-
-        echo "=========================================="
-        echo "----- PassWall2 Makefile 路径 -----"
-
-        find package feeds \
-          -path '*/luci-app-passwall2/Makefile' \
-          -print \
-          2>/dev/null || true
-
-        echo "=========================================="
-        echo "----- SSR Plus Makefile 路径 -----"
-
-        find package feeds \
-          -path '*/luci-app-ssr-plus/Makefile' \
-          -print \
-          2>/dev/null || true
-
-        echo "=========================================="
-        echo "----- PassWall2 中的 legacy 依赖 -----"
-
-        grep -Rni \
-          'iptables-zz-legacy' \
-          feeds/small/luci-app-passwall2 \
-          package/feeds/small/luci-app-passwall2 \
-          2>/dev/null || true
-
-        echo "=========================================="
-        echo "----- SSR Plus 中的 legacy 依赖 -----"
-
-        grep -Rni \
-          'iptables-zz-legacy' \
-          feeds/helloworld/luci-app-ssr-plus \
-          package/feeds/helloworld/luci-app-ssr-plus \
-          2>/dev/null || true
-
-        echo "=========================================="
-        echo "----- 所有 legacy 依赖来源 -----"
-
-        grep -Rni \
-          'PACKAGE_iptables-zz-legacy' \
-          package feeds \
-          --exclude-dir=.git \
-          2>/dev/null | head -200 || true
-
-        echo "=========================================="
-        echo "----- 所有 ip6tables legacy 依赖来源 -----"
-
-        grep -Rni \
-          'PACKAGE_ip6tables-zz-legacy' \
-          package feeds \
-          --exclude-dir=.git \
-          2>/dev/null | head -200 || true
-
-        echo "=========================================="
-        echo "Kconfig 来源搜索完成"
-        echo "=========================================="
-
-        echo "=========================================="
         echo "defconfig 前 iptables 配置"
         echo "=========================================="
 
@@ -422,6 +397,15 @@ jobs:
         make defconfig
 
         echo "=========================================="
+        echo "defconfig 后强制再次禁用 legacy"
+        echo "=========================================="
+
+        sed -i \
+          -e 's/^CONFIG_PACKAGE_iptables-zz-legacy=y$/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
+          -e 's/^CONFIG_PACKAGE_ip6tables-zz-legacy=y$/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
+          .config
+
+        echo "=========================================="
         echo "defconfig 后检查 iptables 配置"
         echo "=========================================="
 
@@ -432,14 +416,14 @@ jobs:
         echo "=========================================="
 
         if grep -q '^CONFIG_PACKAGE_iptables-zz-legacy=y$' .config; then
-          echo "❌ ERROR: iptables-zz-legacy 被 defconfig 重新启用"
-          echo "❌ 停止编译，避免浪费大量时间"
+          echo "❌ ERROR: iptables-zz-legacy 仍被启用"
+          echo "当前相关配置："
+          grep -E 'CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
           exit 1
         fi
 
         if grep -q '^CONFIG_PACKAGE_ip6tables-zz-legacy=y$' .config; then
-          echo "❌ ERROR: ip6tables-zz-legacy 被 defconfig 重新启用"
-          echo "❌ 停止编译，避免浪费大量时间"
+          echo "❌ ERROR: ip6tables-zz-legacy 仍被启用"
           exit 1
         fi
 
@@ -467,14 +451,6 @@ jobs:
         echo "=========================================="
 
         grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
-
-        echo "=========================================="
-        echo "检查 iptables-zz-legacy 配置"
-        echo "=========================================="
-
-        grep -n \
-          -E 'CONFIG_PACKAGE_(ip6tables-)?zz-legacy' \
-          .config || true
 
         echo "=========================================="
         echo "下载 OpenWrt 软件包"
