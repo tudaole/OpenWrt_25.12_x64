@@ -82,4 +82,63 @@ fi
 
 echo "=============iptables 依赖修正完成============"
 
+
+# 修复 dns2socks SourceForge 404
+DNS2SOCKS_MK=$(find feeds package -path '*/dns2socks/Makefile' 2>/dev/null | head -1)
+if [ -n "$DNS2SOCKS_MK" ]; then
+  echo "修补 dns2socks: $DNS2SOCKS_MK"
+  # 改用 GitHub 镜像（kongfl888 同步了 SF 源码）
+  sed -i \
+    -e 's|PKG_SOURCE_URL:=@SF/dns2socks|PKG_SOURCE_URL:=https://github.com/kongfl888/dns2socks/archive/refs/heads/master.tar.gz?|' \
+    -e 's|PKG_SOURCE:=SourceCode.zip|PKG_SOURCE:=dns2socks-master.tar.gz|' \
+    "$DNS2SOCKS_MK" || true
+  # 若改用 tar.gz，HASH 可能变化，可先去掉强制校验或改用 git 方式
+  # 更稳妥：直接用 git 源
+  cat > "$DNS2SOCKS_MK" << 'EOF'
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=dns2socks
+PKG_VERSION:=2.1
+PKG_RELEASE:=2
+
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=https://github.com/kongfl888/dns2socks.git
+PKG_SOURCE_DATE:=2020-02-18
+PKG_SOURCE_VERSION:=master
+PKG_MIRROR_HASH:=skip
+
+PKG_MAINTAINER:=ghostmaker
+PKG_LICENSE:=BSD-3-Clause
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/dns2socks
+  SECTION:=net
+  CATEGORY:=Network
+  SUBMENU:=IP Addresses and Names
+  TITLE:=DNS to SOCKS or HTTP proxy
+  URL:=http://dns2socks.sourceforge.net/
+  DEPENDS:=+libpthread
+endef
+
+define Package/dns2socks/description
+  Resolve DNS requests via a SOCKS tunnel or HTTP proxy.
+endef
+
+define Build/Compile
+	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_CPPFLAGS) $(FPIC) \
+		-o $(PKG_BUILD_DIR)/dns2socks \
+		$(PKG_BUILD_DIR)/DNS2SOCKS.c \
+		$(TARGET_LDFLAGS) -pthread
+endef
+
+define Package/dns2socks/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/dns2socks $(1)/usr/bin/dns2socks
+endef
+
+$(eval $(call BuildPackage,dns2socks))
+EOF
+fi
+
 echo "=============DIY2 配置完成============"
