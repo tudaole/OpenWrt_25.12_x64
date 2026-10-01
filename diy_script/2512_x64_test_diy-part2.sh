@@ -73,6 +73,11 @@ if [ -f "$GITHUB_WORKSPACE/personal/banner" ]; then
     cp -f "$GITHUB_WORKSPACE/personal/banner" package/base-files/files/etc/banner
 fi
 
+# 加入作者信息
+sed -i "s/DISTRIB_DESCRIPTION='*.*'/DISTRIB_DESCRIPTION='OpenWrt-GXNAS-$(date +%Y%m%d)'/g"  package/base-files/files/etc/openwrt_release
+sed -i "s/DISTRIB_REVISION='*.*'/DISTRIB_REVISION=' By GXNAS'/g" package/base-files/files/etc/openwrt_release
+sed -i "s/OPENWRT_RELEASE=\"*.*\"/OPENWRT_RELEASE=\"OpenWrt-GXNAS-$(date +%Y%m%d) By GXNAS\"/g" package/base-files/files/usr/lib/os-release
+
 # 第三方 Makefile：git.openwrt.org -> github.com/openwrt
 find package -type f \( -name "Makefile" -o -name "*.mk" \) \
     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
