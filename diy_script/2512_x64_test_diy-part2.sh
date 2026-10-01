@@ -57,6 +57,17 @@ cp -f "$GITHUB_WORKSPACE/personal/banner" package/base-files/files/etc/banner
 # 处理 openwrt.org 的第三方 Makefile。
 find package -type f \( -name "Makefile" -o -name "*.mk" \)     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
 
+echo "============彻底清除 iptables-zz-legacy select============"
 
+find feeds package -type f -name 'Makefile' 2>/dev/null | while read -r mf; do
+  sed -i \
+    -e '/[[:space:]]*select[[:space:]]\+PACKAGE_iptables-zz-legacy/d' \
+    -e '/[[:space:]]*select[[:space:]]\+PACKAGE_ip6tables-zz-legacy/d' \
+    -e 's/select[[:space:]]\+PACKAGE_iptables$/select PACKAGE_iptables-nft/' \
+    -e 's/select[[:space:]]\+PACKAGE_ip6tables$/select PACKAGE_ip6tables-nft/' \
+    "$mf"
+done
+
+echo "=============iptables 依赖修正完成============"
 
 echo "=============DIY2 配置完成============"
