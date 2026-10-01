@@ -694,6 +694,4 @@ jobs:
         curl -s -X POST \
           "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${{ secrets.WEBHOOK_SEND_KEY }}" \
           -H "Content-Type: application/json" \
-          -d "$(jq -n \
-            --arg content "$CONTENT" \
-            '{msgtype: "text", text: {content: $content}})"
+          -d "$(jq -n --arg content "$CONTENT" '{msgtype: "text", text: {content: $content}}')"
