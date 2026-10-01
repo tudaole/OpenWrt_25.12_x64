@@ -18,5 +18,13 @@ src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;m
 src-git istore https://github.com/linkease/istore;main
 EOF
 
+# Argon 主题
+rm -rf package/luci-theme-argon package/luci-app-argon-config
+git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
+
+# Liquid 主题
+git clone https://github.com/xylz0928/luci-theme-liquid.git package/luci-theme-liquid
+
 
 echo "=============DIY1 配置完成============"
