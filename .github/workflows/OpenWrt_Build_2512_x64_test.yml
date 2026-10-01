@@ -1,5 +1,9 @@
 name: OpenWrt_Build_2512_x64_test
 
+on:
+  workflow_dispatch:
+  repository_dispatch:
+
 permissions:
   contents: write
 
