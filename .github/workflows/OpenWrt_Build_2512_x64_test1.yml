@@ -1,4 +1,4 @@
-name: OpenWrt_Build_2512_x64_test
+name: OpenWrt_Build_2512_x64_test1
 
 on:
   workflow_dispatch:
