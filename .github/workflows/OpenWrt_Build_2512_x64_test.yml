@@ -336,6 +336,42 @@ jobs:
         echo "运行 make defconfig"
         echo "=========================================="
 
+        echo "=========================================="
+        echo "defconfig 前：搜索所有 legacy 依赖来源"
+        echo "=========================================="
+        
+        echo "--- Makefile 中的 select ---"
+        
+        grep -RniE \
+          'select[[:space:]]+PACKAGE_(ip6tables-)?zz-legacy' \
+          package feeds \
+          --include='Makefile' \
+          2>/dev/null || true
+        
+        echo "=========================================="
+        echo "所有 PACKAGE_iptables-zz-legacy 依赖"
+        echo "=========================================="
+        
+        grep -Rni \
+          'PACKAGE_iptables-zz-legacy' \
+          package feeds \
+          --exclude-dir=.git \
+          2>/dev/null | head -200 || true
+        
+        echo "=========================================="
+        echo "所有 PACKAGE_ip6tables-zz-legacy 依赖"
+        echo "=========================================="
+        
+        grep -Rni \
+          'PACKAGE_ip6tables-zz-legacy' \
+          package feeds \
+          --exclude-dir=.git \
+          2>/dev/null | head -200 || true
+        
+        echo "=========================================="
+        echo "执行 make defconfig"
+        echo "=========================================="
+        
         make defconfig
 
         echo "=========================================="
