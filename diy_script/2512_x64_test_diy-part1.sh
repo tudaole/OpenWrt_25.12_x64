@@ -16,6 +16,7 @@ cat >> feeds.conf.default <<'EOF'
 src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main
 src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main
 src-git istore https://github.com/linkease/istore;main
+src-git kms https://github.com/gaoderby/luci-app-kms.git;main
 EOF
 
 # AdGuardHome 插件
