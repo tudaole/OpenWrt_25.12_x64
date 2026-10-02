@@ -74,9 +74,9 @@ if [ -f "$GITHUB_WORKSPACE/personal/banner" ]; then
 fi
 
 # 加入作者信息
-sed -i "s/DISTRIB_DESCRIPTION='*.*'/DISTRIB_DESCRIPTION='OpenWrt-GXNAS-$(date +%Y%m%d)'/g"  package/base-files/files/etc/openwrt_release
-sed -i "s/DISTRIB_REVISION='*.*'/DISTRIB_REVISION=' By GXNAS'/g" package/base-files/files/etc/openwrt_release
-sed -i "s/OPENWRT_RELEASE=\"*.*\"/OPENWRT_RELEASE=\"OpenWrt-GXNAS-$(date +%Y%m%d) By GXNAS\"/g" package/base-files/files/usr/lib/os-release
+sed -i "s/DISTRIB_DESCRIPTION='*.*'/DISTRIB_DESCRIPTION='OpenWrt_2512_x64_${build_name}'/g"  package/base-files/files/etc/openwrt_release
+sed -i "s/DISTRIB_REVISION='*.*'/DISTRIB_REVISION=' by GXNAS build @R${build_date}'/g" package/base-files/files/etc/openwrt_release
+sed -i "s/OPENWRT_RELEASE=\"*.*\"/OPENWRT_RELEASE=\"OpenWrt_2512_x64_${build_name} by GXNAS build @R${build_date}\"/g" package/base-files/files/usr/lib/os-release
 
 # 第三方 Makefile：git.openwrt.org -> github.com/openwrt
 find package -type f \( -name "Makefile" -o -name "*.mk" \) \
