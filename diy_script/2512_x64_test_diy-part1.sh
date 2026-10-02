@@ -63,6 +63,7 @@ rm -f /tmp/add_turboacc.sh
 # Vlmcsd 插件
 rm -rf package/luci-app-vlmcsd
 git clone https://github.com/N7777777/luci-app-vlmcsd.git package/luci-app-vlmcsd
+sed -i 's|PKG_SOURCE_URL:=https://github.com/Wind4/vlmcsd/archive/refs/tags/\$(PKG_VERSION).tar.gz|PKG_SOURCE_URL:=https://codeload.github.com/Wind4/vlmcsd/tar.gz/refs/tags/\$(PKG_VERSION)?|' package/luci-app-vlmcsd/vlmcsd/Makefile
 
 
 echo "=============DIY1 配置完成============"
