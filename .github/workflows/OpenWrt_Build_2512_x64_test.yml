@@ -36,16 +36,13 @@ jobs:
         echo "警告⚠"
         echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
         echo -e "已知CPU型号(降序): 7763，8370C，8272CL，8171M，E5-2673\n"
-
         echo "--------------------------CPU信息--------------------------"
         echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
         echo "CPU核心数量: $(nproc)"
         echo -e "CPU型号信息:$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
-
         echo "--------------------------内存信息--------------------------"
         echo "已安装内存详细信息:"
         echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
-
         echo "--------------------------硬盘信息--------------------------"
         echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
@@ -71,15 +68,8 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
       run: |
         set -e
-
-        echo "=========================================="
-        echo "初始化 OpenWrt 25.12 编译环境"
-        echo "=========================================="
-
         sudo timedatectl set-timezone "$TZ"
-
         sudo apt-get update -qq
-
         sudo apt-get install -y --no-install-recommends \
           build-essential \
           clang \
@@ -102,23 +92,15 @@ jobs:
           xsltproc \
           zstd \
           file
-
         sudo mkdir -p /workdir
         sudo chown "$USER:$GROUPS" /workdir
-
-        echo "=========================================="
-        echo "初始化完成"
-        echo "=========================================="
 
 
     - name: 克隆源代码
       run: |
         df -hT "$PWD"
-
         git clone --depth=1 --branch "$REPO_BRANCH" "$REPO_URL" openwrt
-
         cd openwrt
-
         echo "OPENWRT_COMMIT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
         echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
         echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> "$GITHUB_ENV"
@@ -136,11 +118,8 @@ jobs:
     - name: 修复 intel-microcode 构建报错
       run: |
         cd openwrt
-
         MF=package/firmware/intel-microcode/Makefile
-
         if [ -f "$MF" ]; then
-
           awk '
             /mkdir.*intel-ucode-ipkg/ && !done {
               print "\trm -rf $(PKG_BUILD_DIR)/intel-ucode-ipkg"
@@ -150,27 +129,19 @@ jobs:
             }
             { print }
           ' "$MF" > "$MF.tmp" && mv "$MF.tmp" "$MF"
-
-          echo "===== 修复后的 Build/Compile ====="
           sed -n '/define Build\/Compile/,/^endef/p' "$MF"
-
         else
-
           echo "未找到 intel-microcode Makefile，跳过修复"
-
         fi
 
 
     - name: 生成变量
       run: |
         [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
-
         SOURCE_REPO="$(echo "$REPO_URL" | awk -F '/' '{print $(NF)}')"
         echo "SOURCE_REPO=$SOURCE_REPO" >> "$GITHUB_ENV"
-
         DEVICE_TARGET=$(grep CONFIG_TARGET_BOARD openwrt/.config | awk -F '"' '{print $2}')
         echo "DEVICE_TARGET=$DEVICE_TARGET" >> "$GITHUB_ENV"
-
         DEVICE_SUBTARGET=$(grep CONFIG_TARGET_SUBTARGET openwrt/.config | awk -F '"' '{print $2}')
         echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> "$GITHUB_ENV"
 
@@ -178,11 +149,8 @@ jobs:
     - name: 加载自定义软件源
       run: |
         [ -e "$FEEDS_CONF" ] && mv "$FEEDS_CONF" openwrt/feeds.conf.default
-
         chmod +x "$DIY_P1_SH"
-
         cd openwrt
-
         "$GITHUB_WORKSPACE/$DIY_P1_SH"
 
 
@@ -201,73 +169,51 @@ jobs:
     - name: 加载自定义配置
       run: |
         [ -e files ] && mv files openwrt/files
-
         [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
-
         chmod +x "$DIY_P2_SH"
-
         cd openwrt
-
         "$GITHUB_WORKSPACE/$DIY_P2_SH"
 
 
     - name: 修复第三方插件 apk 非法版本号
       run: |
         cd openwrt
-
         fix_pkg_version() {
           local mf="$1"
-
           [ -f "$mf" ] || return 0
-
           if grep -qE '^PKG_VERSION:=.*-[0-9]{8}' "$mf"; then
             echo "修复版本: $mf"
-
             sed -i -E \
               's/^(PKG_VERSION:=.*)(-)([0-9]{8})/\1.\3/' \
               "$mf"
-
             grep '^PKG_VERSION' "$mf" || true
           fi
-
           if grep -qE '^PKG_VERSION:=.*-(beta|rbeta|alpha|rc[0-9]*)' "$mf"; then
             echo "清理 beta 后缀: $mf"
-
             sed -i -E \
               's/^(PKG_VERSION:=.*)-(beta|rbeta|alpha|rc[0-9]*)/\1/' \
               "$mf"
-
             grep '^PKG_VERSION' "$mf" || true
           fi
         }
-
         find package -name Makefile 2>/dev/null | while read -r mf; do
           fix_pkg_version "$mf"
         done
-
         if [ -f package/luci-app-adguardhome/Makefile ]; then
-
           echo "===== luci-app-adguardhome Makefile 版本信息 ====="
-
           grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|LUCI_VERSION)' \
             package/luci-app-adguardhome/Makefile || true
-
           sed -i -E \
             's/^(PKG_VERSION:=)([0-9]+\.[0-9]+)-([0-9]{8})/\1\2.\3/' \
             package/luci-app-adguardhome/Makefile
-
           if grep -q '1\.8-20221120' \
             package/luci-app-adguardhome/Makefile 2>/dev/null; then
-
             sed -i 's/1\.8-20221120/1.8.20221120/g' \
               package/luci-app-adguardhome/Makefile
           fi
-
           echo "===== 修复后 ====="
-
           grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|LUCI_VERSION)' \
             package/luci-app-adguardhome/Makefile || true
-
         fi
 
 
@@ -284,186 +230,9 @@ jobs:
       id: package
       run: |
         cd openwrt
-
-        echo "=========================================="
-        echo "彻底修复 iptables-zz-legacy（官方 OpenWrt 25.12）"
-        echo "=========================================="
-
-        # 1. 全局删除所有 Makefile 里的 legacy select，并改成 nft
-        find feeds package -type f -name 'Makefile' 2>/dev/null | while read -r mf; do
-          sed -i \
-            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_iptables-zz-legacy/d' \
-            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_ip6tables-zz-legacy/d' \
-            "$mf"
-
-          sed -i \
-            -e 's/select[[:space:]]\+PACKAGE_iptables$/select PACKAGE_iptables-nft/' \
-            -e 's/select[[:space:]]\+PACKAGE_ip6tables$/select PACKAGE_ip6tables-nft/' \
-            "$mf"
-
-          sed -i \
-            -e 's/\(+iptables\)\([^-a-zA-Z0-9_]\|$\)/\1-nft\2/g' \
-            -e 's/\(+ip6tables\)\([^-a-zA-Z0-9_]\|$\)/\1-nft\2/g' \
-            "$mf"
-        done
-
-        # 2. 特别再处理一次 SSR Plus / PassWall / PassWall2
-        for path in \
-          feeds/helloworld/luci-app-ssr-plus/Makefile \
-          package/feeds/helloworld/luci-app-ssr-plus/Makefile \
-          feeds/passwall_luci/luci-app-passwall/Makefile \
-          package/feeds/passwall_luci/luci-app-passwall/Makefile \
-          feeds/passwall_luci/luci-app-passwall2/Makefile \
-          package/feeds/passwall_luci/luci-app-passwall2/Makefile
-        do
-          [ -f "$path" ] || continue
-          echo "强制修补: $path"
-          sed -i \
-            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_iptables-zz-legacy/d' \
-            -e '/[[:space:]]*select[[:space:]]\+PACKAGE_ip6tables-zz-legacy/d' \
-            -e 's/select[[:space:]]\+PACKAGE_iptables$/select PACKAGE_iptables-nft/' \
-            -e 's/select[[:space:]]\+PACKAGE_ip6tables$/select PACKAGE_ip6tables-nft/' \
-            "$path"
-          if ! grep -q 'select PACKAGE_iptables-nft' "$path"; then
-            sed -i '/select PACKAGE_ipset/a\	select PACKAGE_iptables-nft' "$path" 2>/dev/null || \
-            sed -i '/DEPENDS:=/a\	select PACKAGE_iptables-nft' "$path" 2>/dev/null || true
-          fi
-          if ! grep -q 'select PACKAGE_ip6tables-nft' "$path"; then
-            sed -i '/select PACKAGE_iptables-nft/a\	select PACKAGE_ip6tables-nft' "$path" 2>/dev/null || true
-          fi
-        done
-
-        # 3. 清理 feeds 临时索引，强制重新生成
-        rm -rf feeds/*.tmp feeds/*/tmp feeds/*/.index feeds/*/*.index 2>/dev/null || true
-        rm -rf tmp/.config* 2>/dev/null || true
-
-        # 4. 强制 .config
-        sed -i \
-          -e 's/^CONFIG_PACKAGE_iptables-zz-legacy=y$/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
-          -e 's/^CONFIG_PACKAGE_ip6tables-zz-legacy=y$/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
-          -e 's/^# CONFIG_PACKAGE_iptables-nft is not set$/CONFIG_PACKAGE_iptables-nft=y/' \
-          -e 's/^# CONFIG_PACKAGE_ip6tables-nft is not set$/CONFIG_PACKAGE_ip6tables-nft=y/' \
-          .config
-
-        grep -q '^CONFIG_PACKAGE_iptables-nft=y$' .config || echo 'CONFIG_PACKAGE_iptables-nft=y' >> .config
-        grep -q '^CONFIG_PACKAGE_ip6tables-nft=y$' .config || echo 'CONFIG_PACKAGE_ip6tables-nft=y' >> .config
-        grep -q 'iptables-zz-legacy is not set' .config || echo '# CONFIG_PACKAGE_iptables-zz-legacy is not set' >> .config
-        grep -q 'ip6tables-zz-legacy is not set' .config || echo '# CONFIG_PACKAGE_ip6tables-zz-legacy is not set' >> .config
-
-        echo "=========================================="
-        echo "验证 Makefile 是否还有 legacy select"
-        echo "=========================================="
-        if grep -RniE 'select[[:space:]]+PACKAGE_iptables-zz-legacy' feeds package --include='Makefile' 2>/dev/null; then
-          echo "❌ 仍有 Makefile 残留 select PACKAGE_iptables-zz-legacy"
-          exit 1
-        else
-          echo "✅ 所有 Makefile 已清除 iptables-zz-legacy select"
-        fi
-
-        echo "=========================================="
-        echo "检查递归依赖插件"
-        echo "=========================================="
-
-        for pkg in \
-          luci-app-fchomo \
-          luci-app-homeproxy \
-          luci-app-momo \
-          momo \
-          sing-box \
-          sing-box-tiny
-        do
-          echo "----- $pkg -----"
-          grep -E "^CONFIG_PACKAGE_${pkg}=" .config || true
-        done
-
-        echo "=========================================="
-        echo "检查 PassWall / PassWall2 / SSR Plus"
-        echo "=========================================="
-
-        grep -E \
-          '^CONFIG_PACKAGE_luci-app-(passwall|passwall2|ssr-plus)=' \
-          .config || true
-
-        echo "=========================================="
-        echo "defconfig 前 iptables 配置"
-        echo "=========================================="
-
-        grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
-
-        echo "=========================================="
-        echo "运行 make defconfig"
-        echo "=========================================="
-
         make defconfig
-
-        echo "=========================================="
-        echo "defconfig 后强制再次禁用 legacy"
-        echo "=========================================="
-
-        sed -i \
-          -e 's/^CONFIG_PACKAGE_iptables-zz-legacy=y$/# CONFIG_PACKAGE_iptables-zz-legacy is not set/' \
-          -e 's/^CONFIG_PACKAGE_ip6tables-zz-legacy=y$/# CONFIG_PACKAGE_ip6tables-zz-legacy is not set/' \
-          .config
-
-        echo "=========================================="
-        echo "defconfig 后检查 iptables 配置"
-        echo "=========================================="
-
-        grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
-
-        echo "=========================================="
-        echo "检查 iptables-zz-legacy"
-        echo "=========================================="
-
-        if grep -q '^CONFIG_PACKAGE_iptables-zz-legacy=y$' .config; then
-          echo "❌ ERROR: iptables-zz-legacy 仍被启用"
-          echo "当前相关配置："
-          grep -E 'CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
-          exit 1
-        fi
-
-        if grep -q '^CONFIG_PACKAGE_ip6tables-zz-legacy=y$' .config; then
-          echo "❌ ERROR: ip6tables-zz-legacy 仍被启用"
-          exit 1
-        fi
-
-        echo "=========================================="
-        echo "检查 iptables-nft"
-        echo "=========================================="
-
-        if ! grep -q '^CONFIG_PACKAGE_iptables-nft=y$' .config; then
-          echo "❌ ERROR: iptables-nft 未启用"
-          exit 1
-        fi
-
-        if ! grep -q '^CONFIG_PACKAGE_ip6tables-nft=y$' .config; then
-          echo "❌ ERROR: ip6tables-nft 未启用"
-          exit 1
-        fi
-
-        echo "✅ iptables-nft 已启用"
-        echo "✅ ip6tables-nft 已启用"
-        echo "✅ iptables-zz-legacy 未启用"
-        echo "✅ ip6tables-zz-legacy 未启用"
-
-        echo "=========================================="
-        echo "最终 iptables 配置"
-        echo "=========================================="
-
-        grep -E '^CONFIG_PACKAGE_(iptables|ip6tables)' .config || true
-
-        echo "=========================================="
-        echo "下载 OpenWrt 软件包"
-        echo "=========================================="
-
-        make download -j$(nproc)
-
-        echo "=========================================="
-        echo "检查异常小文件"
-        echo "=========================================="
-
+        make download -j8
         find dl -size -1024c -exec ls -l {} \;
-
         find dl -size -1024c -exec rm -f {} \;
 
 
@@ -477,63 +246,13 @@ jobs:
       id: compile
       run: |
         cd openwrt
-
         rm -rf build_dir/target-*/intel-microcode-*
-
-        echo "=========================================="
-        echo "检查 iptables 配置"
-        echo "=========================================="
-
-        grep -E 'CONFIG_(DEFAULT_)?(IP6)?TABLES?' .config || true
-
-        echo "=========================================="
-        echo "检查 iptables-zz-legacy 配置"
-        echo "=========================================="
-
-        grep -n "iptables-zz-legacy" .config || true
-
-        echo "=========================================="
-        echo "检查现有 apk_install_list"
-        echo "=========================================="
-
-        if [ -f tmp/apk_install_list ]; then
-          grep -nE 'iptables|ip6tables' tmp/apk_install_list || true
-        else
-          echo "tmp/apk_install_list 尚未生成"
-        fi
-
-        echo "=========================================="
-        echo "搜索 iptables-zz-legacy 来源"
-        echo "=========================================="
-
-        grep -Rni "iptables-zz-legacy" \
-          package feeds tmp \
-          --exclude-dir=.git \
-          2>/dev/null | head -200 || true
-
-        echo "=========================================="
-        echo "$(nproc) thread compile"
-        echo "=========================================="
-
-        echo "=========================================="
-        echo "检查代理插件是否启用"
-        echo "=========================================="
-
-        grep -E \
-          '^CONFIG_PACKAGE_(luci-app-ssr-plus|luci-app-passwall|luci-app-passwall2)=' \
-          .config || true
-
-        make -j$(nproc) V=s
-
-        echo "status=success" >> "$GITHUB_OUTPUT"
-
-        grep '^CONFIG_TARGET.*DEVICE.*=y' .config \
-          | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-
-        [ -s DEVICE_NAME ] && \
-          echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> "$GITHUB_ENV"
-
-        echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> "$GITHUB_ENV"
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
 
     - name: 编译后检查磁盘使用情况
@@ -542,19 +261,13 @@ jobs:
         echo "=========================================="
         echo "----------------空间使用-------------------"
         echo "=========================================="
-
         echo "系统空间       类型   总数  已用  可用 使用率"
-
         df -hT
-
         echo "=========================================="
-
         du -h --max-depth=1 openwrt/ \
           --exclude=build_dir \
           --exclude=bin
-
         du -h --max-depth=1 openwrt/build_dir
-
         du -h --max-depth=1 openwrt/bin
 
 
@@ -571,21 +284,11 @@ jobs:
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
         cd openwrt/bin/targets/*/*
-
-        echo "=============================编译出来的文件有：==================================="
-
-        ls -lh
-
-        echo "================================================================================="
-
         echo "KERNEL=$(cat *.manifest | grep ^kernel | cut -d- -f2 | tr -d ' ')" >> "$GITHUB_ENV"
-
         mv openwrt-x86-64-generic-squashfs-combined-efi.img.gz \
           "${{ env.FILE_NAME }}-${{ env.FILE_DATE }}-uefi.img.gz"
-
         mv openwrt-x86-64-generic-squashfs-combined.img.gz \
           "${{ env.FILE_NAME }}-${{ env.FILE_DATE }}.img.gz"
-
         rm -rf config.buildinfo
         rm -rf feeds.buildinfo
         rm -rf openwrt-x86-64-generic-kernel.bin
@@ -595,7 +298,6 @@ jobs:
         rm -rf version.buildinfo
         rm -rf sha256sums
         rm -rf packages
-
         echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
         echo "status=success" >> "$GITHUB_OUTPUT"
 
@@ -613,16 +315,12 @@ jobs:
       if: ${{ env.UPLOAD_RELEASE == 'true' && steps.organize.outputs.status == 'success' && !cancelled() }}
       run: |
         : > "$GITHUB_OUTPUT"
-
         release_tag=$(date +"%Y.%m.%d-%H.%M")
         release_date=$(date +"%Y-%m-%d %H:%M")
-
         echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
         echo "release_date=$release_date" >> "$GITHUB_OUTPUT"
         echo "status=success" >> "$GITHUB_OUTPUT"
-
         echo "  ### 📒 固件信息 📒 ###  " >> release.txt
-
         echo "🎯 固件名称: ${{ env.FILE_NAME }}" > release.txt
         echo "📅 编译时间: $release_date" >> release.txt
         echo "⚙️ 构建配置: $CONFIG_FILE" >> release.txt
@@ -666,7 +364,6 @@ jobs:
         📦 下载地址: https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.release_tag }}
         EOF
         )
-
         curl -s -X POST \
           "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.TELEGRAM_TO }}" \
@@ -690,7 +387,6 @@ jobs:
         📦 下载地址: https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.release_tag }}
         EOF
         )
-
         curl -s -X POST \
           "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${{ secrets.WEBHOOK_SEND_KEY }}" \
           -H "Content-Type: application/json" \
