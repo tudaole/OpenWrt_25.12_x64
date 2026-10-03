@@ -1,12 +1,29 @@
 #!/bin/bash
 #
-# OpenWrt DIY script part 1 (After Update feeds)
+# OpenWrt DIY script part 1 (Before feeds update)
 # Adapted for official openwrt/openwrt v25.12.
 #
 
 set -e
 
 echo "============开始 DIY1 配置============="
+
+# ---------- 修复 intel-microcode 构建报错 ----------
+MF="package/firmware/intel-microcode/Makefile"
+if [ -f "$MF" ]; then
+  awk '
+    /mkdir.*intel-ucode-ipkg/ && !done {
+      print "\trm -rf $(PKG_BUILD_DIR)/intel-ucode-ipkg"
+      print "\tmkdir -p $(PKG_BUILD_DIR)/intel-ucode-ipkg"
+      done=1
+      next
+    }
+    { print }
+  ' "$MF" > "$MF.tmp" && mv "$MF.tmp" "$MF"
+  echo "已修复 intel-microcode Makefile"
+else
+  echo "未找到 intel-microcode Makefile，跳过修复"
+fi
 
 mkdir -p package/base-files/files/etc/uci-defaults
 
@@ -60,27 +77,6 @@ rm -rf package/turboacc
 curl -fsSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turboacc.sh -o /tmp/add_turboacc.sh
 bash /tmp/add_turboacc.sh
 rm -f /tmp/add_turboacc.sh
-
-# ========== 修复 iStore 在 OpenWrt 25.12 (APK) 下的兼容性 ==========
-echo "修复 istore Makefile 兼容性问题..."
-
-# 1. 修复 luci-app-store 版本号（APK 不支持 0.2.1-r1 这种格式）
-if [ -f feeds/istore/luci/luci-app-store/Makefile ]; then
-    sed -i 's/PKG_VERSION:=0.2.1-r1/PKG_VERSION:=0.2.1/' feeds/istore/luci/luci-app-store/Makefile
-    sed -i 's/^PKG_RELEASE:=$/PKG_RELEASE:=1/' feeds/istore/luci/luci-app-store/Makefile
-    # 去掉可能有问题的版本约束
-    sed -i 's/LUCI_EXTRA_DEPENDS:=luci-lib-taskd (>=1.0.19)/LUCI_EXTRA_DEPENDS:=luci-lib-taskd/' feeds/istore/luci/luci-app-store/Makefile
-fi
-
-# 2. 修复 luci-lib-taskd
-if [ -f feeds/istore/luci/luci-lib-taskd/Makefile ]; then
-    sed -i 's/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/LUCI_EXTRA_DEPENDS:=taskd/' feeds/istore/luci/luci-lib-taskd/Makefile
-fi
-
-# 3. 重新收集 package 信息（让修复生效）
-./scripts/feeds install -d y -p istore luci-app-store
-
-echo "istore 修复完成"
 
 
 echo "=============DIY1 配置完成============"
