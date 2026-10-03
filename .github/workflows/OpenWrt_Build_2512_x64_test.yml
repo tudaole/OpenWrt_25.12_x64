@@ -166,6 +166,23 @@ jobs:
         ./scripts/feeds update -a
 
 
+    - name: 修复 iStore Makefile（适配 25.12 APK）
+      run: |
+        cd openwrt
+        # 修复版本号
+        find feeds/istore -name Makefile | while read mf; do
+          # 把 0.2.1-r1 改成 0.2.1 + PKG_RELEASE=1
+          if grep -q 'PKG_VERSION:=.*-r[0-9]' "$mf"; then
+            echo "修复版本: $mf"
+            sed -i -E 's/PKG_VERSION:=([0-9.]+)-r([0-9]+)/PKG_VERSION:=\1\nPKG_RELEASE:=\2/' "$mf"
+          fi
+          # 去掉 LUCI_EXTRA_DEPENDS 里的版本约束
+          sed -i -E 's/(LUCI_EXTRA_DEPENDS:=[^ ]+) \(>=[^)]+\)/\1/' "$mf"
+        done
+        # 强制安装并选中
+        ./scripts/feeds install -d y -p istore luci-app-store
+
+
     - name: 安装软件源
       run: |
         cd openwrt
