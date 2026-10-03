@@ -61,9 +61,26 @@ curl -fsSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turb
 bash /tmp/add_turboacc.sh
 rm -f /tmp/add_turboacc.sh
 
-# 强制安装 iStore 及其依赖
-./scripts/feeds update istore
+# ========== 修复 iStore 在 OpenWrt 25.12 (APK) 下的兼容性 ==========
+echo "修复 istore Makefile 兼容性问题..."
+
+# 1. 修复 luci-app-store 版本号（APK 不支持 0.2.1-r1 这种格式）
+if [ -f feeds/istore/luci/luci-app-store/Makefile ]; then
+    sed -i 's/PKG_VERSION:=0.2.1-r1/PKG_VERSION:=0.2.1/' feeds/istore/luci/luci-app-store/Makefile
+    sed -i 's/^PKG_RELEASE:=$/PKG_RELEASE:=1/' feeds/istore/luci/luci-app-store/Makefile
+    # 去掉可能有问题的版本约束
+    sed -i 's/LUCI_EXTRA_DEPENDS:=luci-lib-taskd (>=1.0.19)/LUCI_EXTRA_DEPENDS:=luci-lib-taskd/' feeds/istore/luci/luci-app-store/Makefile
+fi
+
+# 2. 修复 luci-lib-taskd
+if [ -f feeds/istore/luci/luci-lib-taskd/Makefile ]; then
+    sed -i 's/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/LUCI_EXTRA_DEPENDS:=taskd/' feeds/istore/luci/luci-lib-taskd/Makefile
+fi
+
+# 3. 重新收集 package 信息（让修复生效）
 ./scripts/feeds install -d y -p istore luci-app-store
+
+echo "istore 修复完成"
 
 
 echo "=============DIY1 配置完成============"
