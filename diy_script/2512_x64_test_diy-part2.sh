@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# OpenWrt DIY script part 2 (After Update feeds)
+# OpenWrt DIY script part 2 (After Update feeds / After loading config)
 # Adapted for official openwrt/openwrt v25.12.
 #
 
@@ -82,5 +82,42 @@ sed -i "s/OPENWRT_RELEASE=\"*.*\"/OPENWRT_RELEASE=\"OpenWrt_2512_x64_${build_nam
 find package -type f \( -name "Makefile" -o -name "*.mk" \) \
     -exec sed -i 's#https://git.openwrt.org/#https://github.com/openwrt/#g' {} + 2>/dev/null || true
 
+# ---------- 修复第三方插件 apk 非法版本号 ----------
+echo "修复第三方插件 apk 非法版本号..."
+fix_pkg_version() {
+  local mf="$1"
+  [ -f "$mf" ] || return 0
+  if grep -qE '^PKG_VERSION:=.*-[0-9]{8}' "$mf"; then
+    echo "修复版本: $mf"
+    sed -i -E 's/^(PKG_VERSION:=.*)(-)([0-9]{8})/\1.\3/' "$mf"
+    grep '^PKG_VERSION' "$mf" || true
+  fi
+  if grep -qE '^PKG_VERSION:=.*-(beta|rbeta|alpha|rc[0-9]*)' "$mf"; then
+    echo "清理 beta 后缀: $mf"
+    sed -i -E 's/^(PKG_VERSION:=.*)-(beta|rbeta|alpha|rc[0-9]*)/\1/' "$mf"
+    grep '^PKG_VERSION' "$mf" || true
+  fi
+}
+find package -name Makefile 2>/dev/null | while read -r mf; do
+  fix_pkg_version "$mf"
+done
+
+# 单独处理 luci-app-adguardhome
+if [ -f package/luci-app-adguardhome/Makefile ]; then
+  echo "===== luci-app-adguardhome Makefile 版本信息 ====="
+  grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|LUCI_VERSION)' \
+    package/luci-app-adguardhome/Makefile || true
+  sed -i -E \
+    's/^(PKG_VERSION:=)([0-9]+\.[0-9]+)-([0-9]{8})/\1\2.\3/' \
+    package/luci-app-adguardhome/Makefile
+  if grep -q '1\.8-20221120' \
+    package/luci-app-adguardhome/Makefile 2>/dev/null; then
+    sed -i 's/1\.8-20221120/1.8.20221120/g' \
+      package/luci-app-adguardhome/Makefile
+  fi
+  echo "===== 修复后 ====="
+  grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|LUCI_VERSION)' \
+    package/luci-app-adguardhome/Makefile || true
+fi
 
 echo "=============DIY2 配置完成============"
