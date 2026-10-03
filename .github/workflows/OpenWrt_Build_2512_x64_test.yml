@@ -146,27 +146,20 @@ jobs:
         ./scripts/feeds update -a
 
 
-    - name: 修复 iStore 插件
+    - name: 修复 iStore Makefile 并安装
       run: |
         cd openwrt
-        # 删除错误的包名
-        sed -i '/CONFIG_PACKAGE_luci-app-istore/d' .config
-        # 强制写入（覆盖 is not set 或缺失的情况）
-        for pkg in \
-          luci-app-store \
-          luci-i18n-store-zh-cn \
-          luci-lib-taskd \
-          luci-lib-xterm \
-          taskd \
-          script-utils \
-          coreutils-stty \
-          mount-utils
-        do
-          sed -i "/CONFIG_PACKAGE_${pkg}/d" .config
-          echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+        # 1. 修复版本号（去掉 -rN，保持 PKG_RELEASE 为空，符合 luci.mk 要求）
+        find feeds/istore -name Makefile 2>/dev/null | while read mf; do
+          if grep -qE 'PKG_VERSION:=[0-9.]+-r[0-9]+' "$mf"; then
+            echo "修复版本: $mf"
+            sed -i -E 's/PKG_VERSION:=([0-9.]+)-r[0-9]+/PKG_VERSION:=\1/' "$mf"
+          fi
+          # 去掉 LUCI_EXTRA_DEPENDS 里的版本约束
+          sed -i -E 's/(LUCI_EXTRA_DEPENDS:=[^ ]+) \(>=[^)]+\)/\1/' "$mf"
         done
-        echo "已强制选中 iStore 相关包:"
-        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|taskd|script-utils|coreutils-stty|mount-utils)' .config
+        # 2. 强制安装 luci-app-store 及其依赖
+        ./scripts/feeds install -d y -p istore luci-app-store
 
 
     - name: 安装软件源
@@ -184,6 +177,29 @@ jobs:
         "$GITHUB_WORKSPACE/$DIY_P2_SH"
 
 
+    - name: 强制选中 iStore 相关包
+      run: |
+        cd openwrt
+        # 删除错误的包名
+        sed -i '/CONFIG_PACKAGE_luci-app-istore/d' .config
+        # 强制写入（必须在 cp config 之后、make defconfig 之前）
+        for pkg in \
+          luci-app-store \
+          luci-i18n-store-zh-cn \
+          luci-lib-taskd \
+          luci-lib-xterm \
+          taskd \
+          script-utils \
+          coreutils-stty \
+          mount-utils
+        do
+          sed -i "/CONFIG_PACKAGE_${pkg}/d" .config
+          echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+        done
+        echo "===== 确认选中状态 ====="
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store-zh-cn|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|coreutils-stty|mount-utils)=' .config
+
+
     - name: 缓存工具链
       if: env.CACHE_TOOLCHAIN == 'true'
       uses: HiGarfield/cachewrtbuild@main
@@ -198,6 +214,23 @@ jobs:
       run: |
         cd openwrt
         make defconfig
+        # defconfig 后再确认一次，防止被取消选中
+        for pkg in \
+          luci-app-store \
+          luci-i18n-store-zh-cn \
+          luci-lib-taskd \
+          luci-lib-xterm \
+          taskd \
+          script-utils \
+          coreutils-stty \
+          mount-utils
+        do
+          sed -i "/CONFIG_PACKAGE_${pkg}/d" .config
+          echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+        done
+        make defconfig
+        echo "===== defconfig 后最终选中状态 ====="
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd)=' .config || true
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
