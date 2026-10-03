@@ -61,5 +61,9 @@ curl -fsSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turb
 bash /tmp/add_turboacc.sh
 rm -f /tmp/add_turboacc.sh
 
+# 强制安装 iStore 及其依赖
+./scripts/feeds update istore
+./scripts/feeds install -d y -p istore luci-app-store
+
 
 echo "=============DIY1 配置完成============"
