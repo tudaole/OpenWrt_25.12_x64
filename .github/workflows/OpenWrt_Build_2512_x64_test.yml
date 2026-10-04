@@ -168,16 +168,31 @@ jobs:
     - name: 修复 iStore Makefile 并安装
       run: |
         cd openwrt
-        # 1. 修复版本号（去掉 -rN，保持 PKG_RELEASE 为空，符合 luci.mk 要求）
+        # 1. 只修 PKG_VERSION 里的 -rN（APK 不支持 1.0.3-r2 这种写法）
         find feeds/istore -name Makefile 2>/dev/null | while read mf; do
           if grep -qE 'PKG_VERSION:=[0-9.]+-r[0-9]+' "$mf"; then
             echo "修复版本: $mf"
-            sed -i -E 's/PKG_VERSION:=([0-9.]+)-r[0-9]+/PKG_VERSION:=\1/' "$mf"
+            # 拆成 PKG_VERSION + PKG_RELEASE
+            sed -i -E 's/PKG_VERSION:=([0-9.]+)-r([0-9]+)/PKG_VERSION:=\1\nPKG_RELEASE:=\2/' "$mf"
           fi
-          # 去掉 LUCI_EXTRA_DEPENDS 里的版本约束
-          sed -i -E 's/(LUCI_EXTRA_DEPENDS:=[^ ]+) \(>=[^)]+\)/\1/' "$mf"
         done
-        # 2. 强制安装 luci-app-store 及其依赖
+
+        # 2. 强制保证 luci-lib-taskd 带版本约束（25.12 APK 必须有）
+        #    不要再删除 (>=x.x.x)！
+        if [ -f feeds/istore/luci/luci-lib-taskd/Makefile ]; then
+          # 若已是纯 taskd（无版本），补回约束
+          sed -i -E 's/^LUCI_EXTRA_DEPENDS:=taskd$/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/' \
+            feeds/istore/luci/luci-lib-taskd/Makefile
+          # 若写成了 taskd (>=...) 以外的奇怪形式，统一成标准写法
+          if ! grep -qE 'LUCI_EXTRA_DEPENDS:=taskd \(>=' feeds/istore/luci/luci-lib-taskd/Makefile; then
+            sed -i -E 's/^LUCI_EXTRA_DEPENDS:=.*/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/' \
+              feeds/istore/luci/luci-lib-taskd/Makefile
+          fi
+          echo "===== luci-lib-taskd LUCI_EXTRA_DEPENDS ====="
+          grep LUCI_EXTRA_DEPENDS feeds/istore/luci/luci-lib-taskd/Makefile || true
+        fi
+
+        # 3. 安装
         ./scripts/feeds install -d y -p istore luci-app-store
 
 
