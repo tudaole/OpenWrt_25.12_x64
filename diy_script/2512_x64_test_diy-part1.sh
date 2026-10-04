@@ -32,7 +32,6 @@ sed -i '/^src-git \(passwall_packages\|passwall_luci\|istore\|kms\) /d' feeds.co
 cat >> feeds.conf.default <<'EOF'
 src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main
 src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main
-src-git istore https://github.com/linkease/istore;main
 src-git kms https://github.com/gaoderby/luci-app-kms.git;main
 EOF
 
@@ -48,6 +47,10 @@ git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git packa
 # EasyTier 插件
 rm -rf package/luci-app-easytier
 git clone --depth=1 https://github.com/EasyTier/luci-app-easytier.git package/luci-app-easytier
+
+# 添加 istore
+sed -i '/src-git istore /d' feeds.conf.default
+echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
 
 # Liquid 主题
 git clone https://github.com/xylz0928/luci-theme-liquid.git package/luci-theme-liquid
