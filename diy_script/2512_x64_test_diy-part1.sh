@@ -33,6 +33,7 @@ cat >> feeds.conf.default <<'EOF'
 src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main
 src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main
 src-git kms https://github.com/gaoderby/luci-app-kms.git;main
+src-git istore https://github.com/linkease/istore;main
 EOF
 
 # AdGuardHome 插件
@@ -47,10 +48,6 @@ git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git packa
 # EasyTier 插件
 rm -rf package/luci-app-easytier
 git clone --depth=1 https://github.com/EasyTier/luci-app-easytier.git package/luci-app-easytier
-
-# 添加 istore
-sed -i '/src-git istore /d' feeds.conf.default
-echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
 
 # Liquid 主题
 git clone https://github.com/xylz0928/luci-theme-liquid.git package/luci-theme-liquid
@@ -80,6 +77,10 @@ rm -rf package/turboacc
 curl -fsSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turboacc.sh -o /tmp/add_turboacc.sh
 bash /tmp/add_turboacc.sh
 rm -f /tmp/add_turboacc.sh
+
+# 添加 istore
+./scripts/feeds update istore
+./scripts/feeds install -d y -p istore luci-app-store
 
 
 echo "=============DIY1 配置完成============"
