@@ -106,7 +106,6 @@ jobs:
     - name: 克隆源代码
       run: |
         df -hT "$PWD"
-        # 仅拉取当前分支最近一次提交，并过滤 Git 对象，减少源码下载量
         git clone --depth=1 --filter=blob:none --branch "$REPO_BRANCH" "$REPO_URL" openwrt
         cd openwrt
         echo "OPENWRT_COMMIT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
@@ -125,9 +124,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: openwrt/dl
-        # 每个 .config 使用独立缓存，并通过配置文件 hash 实现版本化
         key: openwrt-dl-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-${{ hashFiles(env.CONFIG_FILE) }}
-        # 修改同一个 .config 后，优先恢复该配置之前的 dl 缓存
         restore-keys: |
           openwrt-dl-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-
 
@@ -155,7 +152,6 @@ jobs:
       uses: actions/cache@v4
       with:
         path: openwrt/feeds
-        # feeds 与 .config 解耦；只有 feeds.conf.default 改变时才建立新的缓存
         key: openwrt-feeds-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/feeds.conf.default') }}
         restore-keys: |
           openwrt-feeds-${{ env.REPO_BRANCH }}-
@@ -169,31 +165,54 @@ jobs:
     - name: 修复 iStore Makefile 并安装
       run: |
         cd openwrt
-        # 1. 只修 PKG_VERSION 里的 -rN（APK 不支持 1.0.3-r2 这种写法）
-        find feeds/istore -name Makefile 2>/dev/null | while read mf; do
+
+        # 只修 taskd / luci-lib-taskd / luci-lib-xterm 的版本号
+        # 不要动 luci-app-store（它必须保持 PKG_VERSION:=0.2.1-r1 且 PKG_RELEASE 为空）
+        for mf in \
+          feeds/istore/luci/taskd/Makefile \
+          feeds/istore/luci/luci-lib-taskd/Makefile \
+          feeds/istore/luci/luci-lib-xterm/Makefile
+        do
+          [ -f "$mf" ] || continue
           if grep -qE 'PKG_VERSION:=[0-9.]+-r[0-9]+' "$mf"; then
             echo "修复版本: $mf"
-            # 拆成 PKG_VERSION + PKG_RELEASE
             sed -i -E 's/PKG_VERSION:=([0-9.]+)-r([0-9]+)/PKG_VERSION:=\1\nPKG_RELEASE:=\2/' "$mf"
           fi
         done
 
-        # 2. 强制保证 luci-lib-taskd 带版本约束（25.12 APK 必须有）
-        #    不要再删除 (>=x.x.x)！
+        # luci-lib-taskd：强制带版本约束（25.12 APK 必须）
         if [ -f feeds/istore/luci/luci-lib-taskd/Makefile ]; then
-          # 若已是纯 taskd（无版本），补回约束
           sed -i -E 's/^LUCI_EXTRA_DEPENDS:=taskd$/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/' \
             feeds/istore/luci/luci-lib-taskd/Makefile
-          # 若写成了 taskd (>=...) 以外的奇怪形式，统一成标准写法
           if ! grep -qE 'LUCI_EXTRA_DEPENDS:=taskd \(>=' feeds/istore/luci/luci-lib-taskd/Makefile; then
             sed -i -E 's/^LUCI_EXTRA_DEPENDS:=.*/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/' \
               feeds/istore/luci/luci-lib-taskd/Makefile
           fi
-          echo "===== luci-lib-taskd LUCI_EXTRA_DEPENDS ====="
-          grep LUCI_EXTRA_DEPENDS feeds/istore/luci/luci-lib-taskd/Makefile || true
+          echo "===== luci-lib-taskd ====="
+          grep -E 'LUCI_EXTRA_DEPENDS|PKG_VERSION|PKG_RELEASE' feeds/istore/luci/luci-lib-taskd/Makefile || true
         fi
 
-        # 3. 安装
+        # luci-app-store：保证 EXTRA_DEPENDS 有版本约束，PKG_RELEASE 为空
+        if [ -f feeds/istore/luci/luci-app-store/Makefile ]; then
+          if ! grep -qE 'LUCI_EXTRA_DEPENDS:=luci-lib-taskd \(>=' feeds/istore/luci/luci-app-store/Makefile; then
+            sed -i -E 's/^LUCI_EXTRA_DEPENDS:=.*/LUCI_EXTRA_DEPENDS:=luci-lib-taskd (>=1.0.19)/' \
+              feeds/istore/luci/luci-app-store/Makefile
+          fi
+          # 确保 PKG_RELEASE 为空（luci.mk 要求）
+          if grep -q '^PKG_RELEASE:=' feeds/istore/luci/luci-app-store/Makefile; then
+            sed -i 's/^PKG_RELEASE:=.*/PKG_RELEASE:=/' feeds/istore/luci/luci-app-store/Makefile
+          else
+            echo 'PKG_RELEASE:=' >> feeds/istore/luci/luci-app-store/Makefile
+          fi
+          # 若被错误拆成了 0.2.1 + PKG_RELEASE=1，恢复成官方写法
+          if grep -qE '^PKG_VERSION:=0\.2\.1$' feeds/istore/luci/luci-app-store/Makefile; then
+            sed -i 's/^PKG_VERSION:=0\.2\.1$/PKG_VERSION:=0.2.1-r1/' feeds/istore/luci/luci-app-store/Makefile
+            sed -i 's/^PKG_RELEASE:=.*/PKG_RELEASE:=/' feeds/istore/luci/luci-app-store/Makefile
+          fi
+          echo "===== luci-app-store ====="
+          grep -E 'LUCI_DEPENDS|LUCI_EXTRA_DEPENDS|PKG_VERSION|PKG_RELEASE' feeds/istore/luci/luci-app-store/Makefile || true
+        fi
+
         ./scripts/feeds install -d y -p istore luci-app-store
 
 
@@ -215,24 +234,33 @@ jobs:
     - name: 强制选中 iStore 相关包
       run: |
         cd openwrt
-        # 删除错误的包名
         sed -i '/CONFIG_PACKAGE_luci-app-istore/d' .config
-        # 强制写入（必须在 cp config 之后、make defconfig 之前）
+        # 主包 + 依赖一起写入（defconfig 前）
         for pkg in \
-          luci-app-store \
-          luci-i18n-store-zh-cn \
+          curl \
+          tar \
+          libuci-lua \
+          luci-compat \
+          luci-lib-jsonc \
+          luci-lib-nixio \
           luci-lib-taskd \
           luci-lib-xterm \
           taskd \
           script-utils \
+          coreutils \
           coreutils-stty \
-          mount-utils
+          coreutils-stat \
+          block-mount \
+          mount-utils \
+          luci-app-store \
+          luci-i18n-store-zh-cn
         do
-          sed -i "/CONFIG_PACKAGE_${pkg}/d" .config
+          sed -i "/CONFIG_PACKAGE_${pkg}=/d" .config
+          sed -i "/# CONFIG_PACKAGE_${pkg} is not set/d" .config
           echo "CONFIG_PACKAGE_${pkg}=y" >> .config
         done
         echo "===== 确认选中状态 ====="
-        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store-zh-cn|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|coreutils-stty|mount-utils)=' .config
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl|tar|mount-utils)=' .config || true
 
 
     - name: 缓存工具链
@@ -249,23 +277,50 @@ jobs:
       run: |
         cd openwrt
         make defconfig
-        # defconfig 后再确认一次，防止被取消选中
+
+        # defconfig 后再次强制选中（防止依赖不满足被踢掉）
         for pkg in \
-          luci-app-store \
-          luci-i18n-store-zh-cn \
+          curl \
+          tar \
+          libuci-lua \
+          luci-compat \
+          luci-lib-jsonc \
+          luci-lib-nixio \
           luci-lib-taskd \
           luci-lib-xterm \
           taskd \
           script-utils \
+          coreutils \
           coreutils-stty \
-          mount-utils
+          coreutils-stat \
+          block-mount \
+          mount-utils \
+          luci-app-store \
+          luci-i18n-store-zh-cn
         do
-          sed -i "/CONFIG_PACKAGE_${pkg}/d" .config
+          sed -i "/CONFIG_PACKAGE_${pkg}=/d" .config
+          sed -i "/# CONFIG_PACKAGE_${pkg} is not set/d" .config
           echo "CONFIG_PACKAGE_${pkg}=y" >> .config
         done
+
         make defconfig
-        echo "===== defconfig 后最终选中状态 ====="
-        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd)=' .config || true
+
+        # 最后再钉死主包，确保进固件
+        for pkg in luci-app-store luci-lib-taskd luci-lib-xterm taskd luci-i18n-store-zh-cn; do
+          sed -i "/CONFIG_PACKAGE_${pkg}=/d" .config
+          sed -i "/# CONFIG_PACKAGE_${pkg} is not set/d" .config
+          echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+        done
+
+        echo "===== 最终选中状态 ====="
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl|tar|mount-utils)=' .config || true
+
+        if ! grep -q 'CONFIG_PACKAGE_luci-app-store=y' .config; then
+          echo "ERROR: luci-app-store 仍未被选中，检查依赖是否齐全"
+          ./scripts/feeds list -r istore || true
+          exit 1
+        fi
+
         make download -j$(nproc)
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
