@@ -128,7 +128,6 @@ jobs:
       continue-on-error: true
       uses: actions/cache@v4
       with:
-        # 排除大体积源码包，减小 post 缓存体积，避免 No space left on device
         path: |
           openwrt/dl
           !openwrt/dl/linux-*.tar.*
@@ -144,10 +143,10 @@ jobs:
           !openwrt/dl/llvm-*.tar.*
           !openwrt/dl/clang-*.tar.*
           !openwrt/dl/node-v*.tar.*
-        key: openwrt-dl-slim-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-${{ hashFiles(env.CONFIG_FILE) }}
+        key: ${{ github.workflow }}-${{ env.KERNEL }}-dl-slim-${{ hashFiles(env.CONFIG_FILE) }}
         restore-keys: |
-          openwrt-dl-slim-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}
-          openwrt-dl-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}
+          ${{ github.workflow }}-${{ env.KERNEL }}-dl-slim
+          ${{ github.workflow }}-${{ env.KERNEL }}-dl
 
 
     - name: 生成变量
@@ -281,7 +280,7 @@ jobs:
       uses: HiGarfield/cachewrtbuild@main
       with:
         ccache: true
-        mixkey: ${{ env.FILE_NAME }}-${{ env.KERNEL }}-CACHE_TOOLCHAIN
+        mixkey: ${{ github.workflow }}-${{ env.KERNEL }}-CACHE_TOOLCHAIN
         prefix: ${{ env.OPENWRT_PATH }}
 
 
