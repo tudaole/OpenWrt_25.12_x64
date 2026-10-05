@@ -19,8 +19,20 @@ uci -q commit "luci"
 uci -q set "istore.istore.istore_vue_lang=zh-cn"
 uci -q commit "istore"
 
-# 修复 Netdata 启动脚本权限问题
-[ -f /etc/init.d/netdata ] && chmod +x /etc/init.d/netdata
+# ========== Netdata 强制启用 ==========
+[ -f /etc/config/netdata ] || touch /etc/config/netdata
+uci -q batch <<EOF
+set netdata.netdata=netdata
+set netdata.netdata.enabled='1'
+set netdata.netdata.port='19999'
+commit netdata
+EOF
+
+[ -f /etc/init.d/netdata ] && {
+    chmod +x /etc/init.d/netdata
+    /etc/init.d/netdata enable
+    /etc/init.d/netdata start
+}
 
 # TurboACC 插件默认启用 BBR 拥塞控制
 if [ -f "/etc/config/turboacc" ]; then
