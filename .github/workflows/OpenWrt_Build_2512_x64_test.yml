@@ -125,6 +125,7 @@ jobs:
 
 
     - name: 缓存 OpenWrt 下载文件
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         # 排除大体积源码包，减小 post 缓存体积，避免 No space left on device
