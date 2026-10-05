@@ -68,6 +68,10 @@ git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
 rm -rf package/OpenAppFilter
 git clone --depth=1 https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
 
+# OpenClash 插件
+rm -rf package/OpenClash
+git clone --depth=1 https://github.com/vernesong/OpenClash.git package/OpenClash
+
 # Poweroffdevice 插件
 rm -rf package/luci-app-poweroffdevice
 git clone --depth=1 https://github.com/sirpdboy/luci-app-poweroffdevice.git package/luci-app-poweroffdevice
