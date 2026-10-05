@@ -146,8 +146,8 @@ jobs:
           !openwrt/dl/node-v*.tar.*
         key: openwrt-dl-slim-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-${{ hashFiles(env.CONFIG_FILE) }}
         restore-keys: |
-          openwrt-dl-slim-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-
-          openwrt-dl-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-
+          openwrt-dl-slim-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}
+          openwrt-dl-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}
 
 
     - name: 生成变量
@@ -281,7 +281,7 @@ jobs:
       uses: HiGarfield/cachewrtbuild@main
       with:
         ccache: true
-        mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+        mixkey: ${{ env.FILE_NAME }}-${{ env.KERNEL }}-CACHE_TOOLCHAIN
         prefix: ${{ env.OPENWRT_PATH }}
 
 
