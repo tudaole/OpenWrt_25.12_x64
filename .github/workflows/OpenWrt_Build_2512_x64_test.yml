@@ -123,12 +123,29 @@ jobs:
         echo "配置文件: $CONFIG_FILE"
         echo "缓存名称: $CONFIG_NAME"
 
+
     - name: 缓存 OpenWrt 下载文件
       uses: actions/cache@v4
       with:
-        path: openwrt/dl
-        key: openwrt-dl-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-${{ hashFiles(env.CONFIG_FILE) }}
+        # 排除大体积源码包，减小 post 缓存体积，避免 No space left on device
+        path: |
+          openwrt/dl
+          !openwrt/dl/linux-*.tar.*
+          !openwrt/dl/gcc-*.tar.*
+          !openwrt/dl/binutils-*.tar.*
+          !openwrt/dl/musl-*.tar.*
+          !openwrt/dl/glibc-*.tar.*
+          !openwrt/dl/rustc-*.tar.*
+          !openwrt/dl/cargo-*.tar.*
+          !openwrt/dl/go*.tar.*
+          !openwrt/dl/golang-*.tar.*
+          !openwrt/dl/cmake-*.tar.*
+          !openwrt/dl/llvm-*.tar.*
+          !openwrt/dl/clang-*.tar.*
+          !openwrt/dl/node-v*.tar.*
+        key: openwrt-dl-slim-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-${{ hashFiles(env.CONFIG_FILE) }}
         restore-keys: |
+          openwrt-dl-slim-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-
           openwrt-dl-${{ env.REPO_BRANCH }}-${{ env.PRODUCT_NAME }}-${{ env.CONFIG_NAME }}-
 
 
@@ -158,6 +175,7 @@ jobs:
         key: openwrt-feeds-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/feeds.conf.default') }}
         restore-keys: |
           openwrt-feeds-${{ env.REPO_BRANCH }}-
+
 
     - name: 更新软件源
       run: |
@@ -193,9 +211,7 @@ jobs:
         fi
 
         # luci-app-store：去掉容易缺失的 tar / mount-utils 硬依赖
-        # （系统 busybox 通常已有 tar；mount 相关用 block-mount 即可）
         if [ -f feeds/istore/luci/luci-app-store/Makefile ]; then
-          # 原: +curl +tar +libuci-lua +mount-utils +luci-lib-taskd
           sed -i 's/^LUCI_DEPENDS:=.*/LUCI_DEPENDS:=+curl +libuci-lua +luci-lib-taskd/' \
             feeds/istore/luci/luci-app-store/Makefile
 
@@ -214,6 +230,7 @@ jobs:
         fi
 
         ./scripts/feeds install -d y -p istore luci-app-store
+
 
     - name: 安装软件源
       run: |
@@ -234,10 +251,8 @@ jobs:
       run: |
         cd openwrt
         sed -i '/CONFIG_PACKAGE_luci-app-istore/d' .config
-        # 主包 + 依赖一起写入（defconfig 前）
         for pkg in \
           curl \
-          tar \
           libuci-lua \
           luci-compat \
           luci-lib-jsonc \
@@ -245,12 +260,10 @@ jobs:
           luci-lib-taskd \
           luci-lib-xterm \
           taskd \
-          script-utils \
           coreutils \
           coreutils-stty \
           coreutils-stat \
           block-mount \
-          mount-utils \
           luci-app-store \
           luci-i18n-store-zh-cn
         do
@@ -259,7 +272,7 @@ jobs:
           echo "CONFIG_PACKAGE_${pkg}=y" >> .config
         done
         echo "===== 确认选中状态 ====="
-        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl|tar|mount-utils)=' .config || true
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl)=' .config || true
 
 
     - name: 缓存工具链
@@ -267,7 +280,7 @@ jobs:
       uses: HiGarfield/cachewrtbuild@main
       with:
         ccache: true
-        mixkey: ${{ env.FILE_NAME }}-${{ env.KERNEL }}-Caches-${{ env.DEVICE_SUBTARGET }}
+        mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
         prefix: ${{ env.OPENWRT_PATH }}
 
 
@@ -277,10 +290,8 @@ jobs:
         cd openwrt
         make defconfig
 
-        # defconfig 后再次强制选中（防止依赖不满足被踢掉）
         for pkg in \
           curl \
-          tar \
           libuci-lua \
           luci-compat \
           luci-lib-jsonc \
@@ -288,12 +299,10 @@ jobs:
           luci-lib-taskd \
           luci-lib-xterm \
           taskd \
-          script-utils \
           coreutils \
           coreutils-stty \
           coreutils-stat \
           block-mount \
-          mount-utils \
           luci-app-store \
           luci-i18n-store-zh-cn
         do
@@ -304,7 +313,6 @@ jobs:
 
         make defconfig
 
-        # 最后再钉死主包，确保进固件
         for pkg in luci-app-store luci-lib-taskd luci-lib-xterm taskd luci-i18n-store-zh-cn; do
           sed -i "/CONFIG_PACKAGE_${pkg}=/d" .config
           sed -i "/# CONFIG_PACKAGE_${pkg} is not set/d" .config
@@ -312,7 +320,7 @@ jobs:
         done
 
         echo "===== 最终选中状态 ====="
-        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl|tar|mount-utils)=' .config || true
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl)=' .config || true
 
         if ! grep -q 'CONFIG_PACKAGE_luci-app-store=y' .config; then
           echo "ERROR: luci-app-store 仍未被选中，检查依赖是否齐全"
@@ -321,12 +329,31 @@ jobs:
         fi
 
         make download -j$(nproc)
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
+
+        # 清理不完整下载
+        find dl -type f -size -1024c -delete 2>/dev/null || true
+
+        # 再删一遍超大源码包，进一步减小 post 缓存体积
+        # （这些包下次下载也很快，没必要进 Actions cache）
+        find dl -type f \( \
+          -name 'linux-*.tar.*' -o \
+          -name 'gcc-*.tar.*' -o \
+          -name 'binutils-*.tar.*' -o \
+          -name 'musl-*.tar.*' -o \
+          -name 'glibc-*.tar.*' -o \
+          -name 'rustc-*.tar.*' -o \
+          -name 'cargo-*.tar.*' -o \
+          -name 'go*.tar.*' -o \
+          -name 'cmake-*.tar.*' -o \
+          -name 'llvm-*.tar.*' -o \
+          -name 'node-v*.tar.*' \
+        \) -size +20M -delete 2>/dev/null || true
+
         echo "===== 下载缓存信息 ====="
         echo "配置文件: $CONFIG_FILE"
         echo "缓存名称: $CONFIG_NAME"
         echo "dl 目录大小: $(du -sh dl 2>/dev/null | cut -f1)"
+        df -hT .
 
 
     - name: 编译前检查磁盘使用情况
