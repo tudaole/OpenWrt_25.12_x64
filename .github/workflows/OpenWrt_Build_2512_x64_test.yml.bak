@@ -35,11 +35,15 @@ jobs:
       run: |
         echo "警告⚠ 分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
         echo -e "已知常见CPU型号（大致性能降序）:"
-        echo "  • AMD EPYC 9V74 / 9V33（最新一代，80核级）"
-        echo "  • AMD EPYC 7763（64核）"
-        echo "  • Intel Xeon Platinum 8370C / 8272CL"
-        echo "  • Intel Xeon Platinum 8171M"
-        echo "  • Intel Xeon E5-2673 v3/v4"
+        echo "  • Intel Xeon 6973P-C（96C/192T）"
+        echo "  • AMD EPYC 9V74（96C/192T）"
+        echo "  • AMD EPYC 9V45（64C/128T）"
+        echo "  • AMD EPYC 7763（64C/128T）"
+        echo "  • Intel Xeon Platinum 8370C（52C/104T）"
+        echo "  • Intel Xeon Platinum 8272CL（26C/52T）"
+        echo "  • Intel Xeon Platinum 8171M（26C/52T）"
+        echo "  • Intel Xeon E5-2673 v4（20C/40T）"
+        echo "  • Intel Xeon E5-2673 v3（12C/24T）"
         echo ""
         echo "--------------------------CPU信息--------------------------"
         echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
@@ -105,20 +109,44 @@ jobs:
     - name: 克隆源代码
       run: |
         df -hT "$PWD"
-        git clone --depth=1 --branch "$REPO_BRANCH" "$REPO_URL" openwrt
+        git clone --depth=1 --filter=blob:none --branch "$REPO_BRANCH" "$REPO_URL" openwrt
         cd openwrt
         echo "OPENWRT_COMMIT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
         echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
         echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> "$GITHUB_ENV"
 
 
+    - name: 生成配置缓存名称
+      run: |
+        CONFIG_NAME="$(basename "$CONFIG_FILE" .config)"
+        echo "CONFIG_NAME=$CONFIG_NAME" >> "$GITHUB_ENV"
+        echo "配置文件: $CONFIG_FILE"
+        echo "缓存名称: $CONFIG_NAME"
+
+
     - name: 缓存 OpenWrt 下载文件
+      continue-on-error: true
       uses: actions/cache@v4
       with:
-        path: openwrt/dl
-        key: openwrt-dl-openwrt-25.12-${{ hashFiles('config/2512_x64_test.config') }}
+        path: |
+          openwrt/dl
+          !openwrt/dl/linux-*.tar.*
+          !openwrt/dl/gcc-*.tar.*
+          !openwrt/dl/binutils-*.tar.*
+          !openwrt/dl/musl-*.tar.*
+          !openwrt/dl/glibc-*.tar.*
+          !openwrt/dl/rustc-*.tar.*
+          !openwrt/dl/cargo-*.tar.*
+          !openwrt/dl/go*.tar.*
+          !openwrt/dl/golang-*.tar.*
+          !openwrt/dl/cmake-*.tar.*
+          !openwrt/dl/llvm-*.tar.*
+          !openwrt/dl/clang-*.tar.*
+          !openwrt/dl/node-v*.tar.*
+        key: ${{ github.workflow }}-${{ env.KERNEL }}-dl-slim-${{ hashFiles(env.CONFIG_FILE) }}
         restore-keys: |
-          openwrt-dl-openwrt-25.12-
+          ${{ github.workflow }}-${{ env.KERNEL }}-dl-slim
+          ${{ github.workflow }}-${{ env.KERNEL }}-dl
 
 
     - name: 生成变量
@@ -140,6 +168,15 @@ jobs:
         "$GITHUB_WORKSPACE/$DIY_P1_SH"
 
 
+    - name: 缓存软件源 Git 仓库
+      uses: actions/cache@v4
+      with:
+        path: openwrt/feeds
+        key: openwrt-feeds-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/feeds.conf.default') }}
+        restore-keys: |
+          openwrt-feeds-${{ env.REPO_BRANCH }}-
+
+
     - name: 更新软件源
       run: |
         cd openwrt
@@ -149,16 +186,49 @@ jobs:
     - name: 修复 iStore Makefile 并安装
       run: |
         cd openwrt
-        # 1. 修复版本号（去掉 -rN，保持 PKG_RELEASE 为空，符合 luci.mk 要求）
-        find feeds/istore -name Makefile 2>/dev/null | while read mf; do
+
+        # 只修 taskd 相关版本号，不动 luci-app-store 的 0.2.1-r1
+        for mf in \
+          feeds/istore/luci/taskd/Makefile \
+          feeds/istore/luci/luci-lib-taskd/Makefile \
+          feeds/istore/luci/luci-lib-xterm/Makefile
+        do
+          [ -f "$mf" ] || continue
           if grep -qE 'PKG_VERSION:=[0-9.]+-r[0-9]+' "$mf"; then
             echo "修复版本: $mf"
-            sed -i -E 's/PKG_VERSION:=([0-9.]+)-r[0-9]+/PKG_VERSION:=\1/' "$mf"
+            sed -i -E 's/PKG_VERSION:=([0-9.]+)-r([0-9]+)/PKG_VERSION:=\1\nPKG_RELEASE:=\2/' "$mf"
           fi
-          # 去掉 LUCI_EXTRA_DEPENDS 里的版本约束
-          sed -i -E 's/(LUCI_EXTRA_DEPENDS:=[^ ]+) \(>=[^)]+\)/\1/' "$mf"
         done
-        # 2. 强制安装 luci-app-store 及其依赖
+
+        # luci-lib-taskd 版本约束
+        if [ -f feeds/istore/luci/luci-lib-taskd/Makefile ]; then
+          sed -i -E 's/^LUCI_EXTRA_DEPENDS:=taskd$/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/' \
+            feeds/istore/luci/luci-lib-taskd/Makefile
+          if ! grep -qE 'LUCI_EXTRA_DEPENDS:=taskd \(>=' feeds/istore/luci/luci-lib-taskd/Makefile; then
+            sed -i -E 's/^LUCI_EXTRA_DEPENDS:=.*/LUCI_EXTRA_DEPENDS:=taskd (>=1.0.3)/' \
+              feeds/istore/luci/luci-lib-taskd/Makefile
+          fi
+        fi
+
+        # luci-app-store：去掉容易缺失的 tar / mount-utils 硬依赖
+        if [ -f feeds/istore/luci/luci-app-store/Makefile ]; then
+          sed -i 's/^LUCI_DEPENDS:=.*/LUCI_DEPENDS:=+curl +libuci-lua +luci-lib-taskd/' \
+            feeds/istore/luci/luci-app-store/Makefile
+
+          if ! grep -qE 'LUCI_EXTRA_DEPENDS:=luci-lib-taskd \(>=' feeds/istore/luci/luci-app-store/Makefile; then
+            sed -i -E 's/^LUCI_EXTRA_DEPENDS:=.*/LUCI_EXTRA_DEPENDS:=luci-lib-taskd (>=1.0.19)/' \
+              feeds/istore/luci/luci-app-store/Makefile
+          fi
+          sed -i 's/^PKG_RELEASE:=.*/PKG_RELEASE:=/' feeds/istore/luci/luci-app-store/Makefile
+          if grep -qE '^PKG_VERSION:=0\.2\.1$' feeds/istore/luci/luci-app-store/Makefile; then
+            sed -i 's/^PKG_VERSION:=0\.2\.1$/PKG_VERSION:=0.2.1-r1/' feeds/istore/luci/luci-app-store/Makefile
+            sed -i 's/^PKG_RELEASE:=.*/PKG_RELEASE:=/' feeds/istore/luci/luci-app-store/Makefile
+          fi
+          echo "===== luci-app-store ====="
+          grep -E 'LUCI_DEPENDS|LUCI_EXTRA_DEPENDS|PKG_VERSION|PKG_RELEASE' \
+            feeds/istore/luci/luci-app-store/Makefile || true
+        fi
+
         ./scripts/feeds install -d y -p istore luci-app-store
 
 
@@ -180,24 +250,29 @@ jobs:
     - name: 强制选中 iStore 相关包
       run: |
         cd openwrt
-        # 删除错误的包名
         sed -i '/CONFIG_PACKAGE_luci-app-istore/d' .config
-        # 强制写入（必须在 cp config 之后、make defconfig 之前）
         for pkg in \
-          luci-app-store \
-          luci-i18n-store-zh-cn \
+          curl \
+          libuci-lua \
+          luci-compat \
+          luci-lib-jsonc \
+          luci-lib-nixio \
           luci-lib-taskd \
           luci-lib-xterm \
           taskd \
-          script-utils \
+          coreutils \
           coreutils-stty \
-          mount-utils
+          coreutils-stat \
+          block-mount \
+          luci-app-store \
+          luci-i18n-store-zh-cn
         do
-          sed -i "/CONFIG_PACKAGE_${pkg}/d" .config
+          sed -i "/CONFIG_PACKAGE_${pkg}=/d" .config
+          sed -i "/# CONFIG_PACKAGE_${pkg} is not set/d" .config
           echo "CONFIG_PACKAGE_${pkg}=y" >> .config
         done
         echo "===== 确认选中状态 ====="
-        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store-zh-cn|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|coreutils-stty|mount-utils)=' .config
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl)=' .config || true
 
 
     - name: 缓存工具链
@@ -205,7 +280,7 @@ jobs:
       uses: HiGarfield/cachewrtbuild@main
       with:
         ccache: true
-        mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+        mixkey: ${{ github.workflow }}-${{ env.KERNEL }}-CACHE_TOOLCHAIN
         prefix: ${{ env.OPENWRT_PATH }}
 
 
@@ -214,26 +289,71 @@ jobs:
       run: |
         cd openwrt
         make defconfig
-        # defconfig 后再确认一次，防止被取消选中
+
         for pkg in \
-          luci-app-store \
-          luci-i18n-store-zh-cn \
+          curl \
+          libuci-lua \
+          luci-compat \
+          luci-lib-jsonc \
+          luci-lib-nixio \
           luci-lib-taskd \
           luci-lib-xterm \
           taskd \
-          script-utils \
+          coreutils \
           coreutils-stty \
-          mount-utils
+          coreutils-stat \
+          block-mount \
+          luci-app-store \
+          luci-i18n-store-zh-cn
         do
-          sed -i "/CONFIG_PACKAGE_${pkg}/d" .config
+          sed -i "/CONFIG_PACKAGE_${pkg}=/d" .config
+          sed -i "/# CONFIG_PACKAGE_${pkg} is not set/d" .config
           echo "CONFIG_PACKAGE_${pkg}=y" >> .config
         done
+
         make defconfig
-        echo "===== defconfig 后最终选中状态 ====="
-        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd)=' .config || true
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
+
+        for pkg in luci-app-store luci-lib-taskd luci-lib-xterm taskd luci-i18n-store-zh-cn; do
+          sed -i "/CONFIG_PACKAGE_${pkg}=/d" .config
+          sed -i "/# CONFIG_PACKAGE_${pkg} is not set/d" .config
+          echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+        done
+
+        echo "===== 最终选中状态 ====="
+        grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-i18n-store|luci-lib-taskd|luci-lib-xterm|taskd|curl)=' .config || true
+
+        if ! grep -q 'CONFIG_PACKAGE_luci-app-store=y' .config; then
+          echo "ERROR: luci-app-store 仍未被选中，检查依赖是否齐全"
+          ./scripts/feeds list -r istore || true
+          exit 1
+        fi
+
+        make download -j$(nproc)
+
+        # 清理不完整下载
+        find dl -type f -size -1024c -delete 2>/dev/null || true
+
+        # 再删一遍超大源码包，进一步减小 post 缓存体积
+        # （这些包下次下载也很快，没必要进 Actions cache）
+        find dl -type f \( \
+          -name 'linux-*.tar.*' -o \
+          -name 'gcc-*.tar.*' -o \
+          -name 'binutils-*.tar.*' -o \
+          -name 'musl-*.tar.*' -o \
+          -name 'glibc-*.tar.*' -o \
+          -name 'rustc-*.tar.*' -o \
+          -name 'cargo-*.tar.*' -o \
+          -name 'go*.tar.*' -o \
+          -name 'cmake-*.tar.*' -o \
+          -name 'llvm-*.tar.*' -o \
+          -name 'node-v*.tar.*' \
+        \) -size +20M -delete 2>/dev/null || true
+
+        echo "===== 下载缓存信息 ====="
+        echo "配置文件: $CONFIG_FILE"
+        echo "缓存名称: $CONFIG_NAME"
+        echo "dl 目录大小: $(du -sh dl 2>/dev/null | cut -f1)"
+        df -hT .
 
 
     - name: 编译前检查磁盘使用情况
