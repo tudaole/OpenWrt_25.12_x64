@@ -5,6 +5,7 @@ on:
   repository_dispatch:
 
 permissions:
+  actions: write
   contents: write
 
 env:
@@ -124,29 +125,17 @@ jobs:
         echo "缓存名称: $CONFIG_NAME"
 
 
-    - name: 缓存 OpenWrt 下载文件
+    - name: 设置 dl 缓存 key
+      run: echo "DL_CACHE_KEY=openwrt-2512-x64-dl-${{ hashFiles(env.CONFIG_FILE) }}" >> "$GITHUB_ENV"
+
+    - name: 缓存 OpenWrt 下载文件（25.12 系列共用）
       continue-on-error: true
       uses: actions/cache@v4
       with:
-        path: |
-          openwrt/dl
-          !openwrt/dl/linux-*.tar.*
-          !openwrt/dl/gcc-*.tar.*
-          !openwrt/dl/binutils-*.tar.*
-          !openwrt/dl/musl-*.tar.*
-          !openwrt/dl/glibc-*.tar.*
-          !openwrt/dl/rustc-*.tar.*
-          !openwrt/dl/cargo-*.tar.*
-          !openwrt/dl/go*.tar.*
-          !openwrt/dl/golang-*.tar.*
-          !openwrt/dl/cmake-*.tar.*
-          !openwrt/dl/llvm-*.tar.*
-          !openwrt/dl/clang-*.tar.*
-          !openwrt/dl/node-v*.tar.*
-        key: ${{ github.workflow }}-${{ env.KERNEL }}-dl-slim-${{ hashFiles(env.CONFIG_FILE) }}
+        path: openwrt/dl
+        key: ${{ env.DL_CACHE_KEY }}
         restore-keys: |
-          ${{ github.workflow }}-${{ env.KERNEL }}-dl-slim
-          ${{ github.workflow }}-${{ env.KERNEL }}-dl
+          openwrt-2512-x64-dl-
 
 
     - name: 生成变量
@@ -168,13 +157,14 @@ jobs:
         "$GITHUB_WORKSPACE/$DIY_P1_SH"
 
 
-    - name: 缓存软件源 Git 仓库
+    - name: 缓存软件源 Git 仓库（25.12 系列共用）
       uses: actions/cache@v4
       with:
         path: openwrt/feeds
-        key: openwrt-feeds-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/feeds.conf.default') }}
+        key: openwrt-2512-feeds-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/feeds.conf.default') }}
         restore-keys: |
-          openwrt-feeds-${{ env.REPO_BRANCH }}-
+          openwrt-2512-feeds-${{ env.REPO_BRANCH }}-
+          openwrt-2512-feeds-
 
 
     - name: 更新软件源
@@ -280,7 +270,7 @@ jobs:
       uses: HiGarfield/cachewrtbuild@main
       with:
         ccache: true
-        mixkey: ${{ github.workflow }}-${{ env.KERNEL }}-CACHE_TOOLCHAIN
+        mixkey: openwrt-2512-x64
         prefix: ${{ env.OPENWRT_PATH }}
 
 
@@ -511,3 +501,46 @@ jobs:
           "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${{ secrets.WEBHOOK_SEND_KEY }}" \
           -H "Content-Type: application/json" \
           -d "$(jq -n --arg content "$CONTENT" '{msgtype: "text", text: {content: $content}}')"
+
+    - name: 清理旧 Actions 缓存（控制总占用 ≤10G）
+      if: always()
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        REPO="${{ github.repository }}"
+        DATA=$(gh cache list -R "$REPO" --limit 100 --json id,key,createdAt,sizeInBytes 2>/dev/null || echo '[]')
+        echo "===== 当前缓存列表 ====="
+        echo "$DATA" | jq -r '.[] | "\(.createdAt) \(.sizeInBytes // 0) \(.id) \(.key)"' || true
+        echo "========================"
+
+        # 策略（本仓库 25.12 系列，控制在 10G 内）：
+        # - dl：保留最新 2 个
+        # - 工具链/ccache：保留最新 1 个
+        # - feeds：保留最新 1 个
+        # - 旧命名残留（dl-slim / CACHE_TOOLCHAIN / 带 workflow 名）：全部删除
+        delete_ids=$(echo "$DATA" | jq -r '
+          # 旧风格残留
+          ( [.[] | select(.key | test("dl-slim|CACHE_TOOLCHAIN|OpenWrt_Build_25"))] | map(.id) )
+          +
+          # dl：保留最新 2
+          ( [.[] | select(.key | startswith("openwrt-2512-x64-dl-"))] | sort_by(.createdAt) | reverse | .[2:] | map(.id) )
+          +
+          # 工具链：含 openwrt-2512-x64 且非 dl，保留最新 1
+          ( [.[] | select((.key | test("openwrt-2512-x64")) and (.key | startswith("openwrt-2512-x64-dl-") | not))] | sort_by(.createdAt) | reverse | .[1:] | map(.id) )
+          +
+          # feeds：保留最新 1
+          ( [.[] | select(.key | startswith("openwrt-2512-feeds-"))] | sort_by(.createdAt) | reverse | .[1:] | map(.id) )
+          | unique | .[]
+        ')
+        if [ -z "$delete_ids" ]; then
+          echo "无需删除缓存"
+        else
+          for id in $delete_ids; do
+            echo "Deleting cache id=$id"
+            gh cache delete "$id" -R "$REPO" || true
+          done
+        fi
+
+        echo "===== 清理后缓存列表 ====="
+        gh cache list -R "$REPO" --limit 20 || true
